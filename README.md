@@ -6,8 +6,9 @@ werden — den DKB-Kontoauszug und den MoneyMoney-Kategorienexport —, rechnet 
 den Quartalsbericht und macht jede Zahl bis auf die einzelne Bankbuchung
 aufklappbar.
 
-Die fachliche Grundlage steht in [`PLANUNG.md`](PLANUNG.md). Dieses Dokument
-beschreibt, was das Tool tut und wie man es benutzt.
+Die fachliche Grundlage steht in [`PLANUNG.md`](PLANUNG.md). Änderungen am Stand
+des Tools stehen im [`CHANGELOG.md`](CHANGELOG.md). Dieses Dokument beschreibt,
+was das Tool tut und wie man es benutzt.
 
 ---
 
@@ -26,6 +27,7 @@ beschreibt, was das Tool tut und wie man es benutzt.
 11. [Offene fachliche Fragen](#offene-fachliche-fragen)
 12. [Stand und Fahrplan](#stand-und-fahrplan)
 13. [Fehlersuche](#fehlersuche)
+14. [Changelog](CHANGELOG.md)
 
 ---
 
@@ -47,8 +49,9 @@ aufklappbar, und deshalb tragen alle Beträge, die nicht aus einer Bankbuchung
 stammen, eine Herkunftsangabe.
 
 Der Maßstab für die Richtigkeit ist der Bestand: Das Tool reproduziert die
-vorhandene Auswertung für das erste Halbjahr 2026 auf den Cent. Es erfindet keine
-neue Systematik, sondern automatisiert und dokumentiert die bestehende.
+vorhandene Auswertung für das erste Halbjahr 2026 auf den Cent. Mit den Exporten
+vom 14.9.2026 ist außerdem die Abrechnung **Q1–Q3 2026** gerechnet; der
+Summenbericht steht unter [`berichte/2026-Q1-Q3.md`](berichte/2026-Q1-Q3.md).
 
 **Was man an einem Nachmittag damit machen kann:** Den Nextcloud-Freigabelink mit
 den Exporten einfügen, Jahr und Quartal wählen, und den Quartalsbericht auf dem
@@ -603,28 +606,41 @@ so gebaut, dass beide Antworten abbildbar sind.
 - **Freigabebefugnis und Betragsgrenze** bei Auslagenerstattungen, und ob die
   Hausverwaltung das Verfahren mitträgt.
 
+Aus der Abrechnung Q1–Q3 2026 (Stand 15.9.2026) neu:
+
+- **WEG-Rechnungen 36.534,66 € gegen −43.476,24 €.** Die EÜR und die
+  MoneyMoney-Kategorie weichen um 6.941,58 € voneinander ab. Bis zur Klärung gilt
+  der Blattwert; die Differenz ist aus den Einzelbuchungen nicht rekonstruierbar.
+- **Vorzeichen der Überweisung.** Tool +6.478,73 € (Guthaben), Blatt −6.478,73 €
+  (andere Vorzeichenkonvention in der Abschlagszeile). Betrag gleich.
+- **Stichtag 15.9. oder 30.9.?** Buchungen enden am 15.9., Nebenkosten und
+  Internet sind als drei Viertel des Jahres angesetzt.
+- **Freiraum 2.646,65 €** auf dem Optionsraumkonto, durchlaufend und nicht in der
+  Auswertung. Ob das so bleiben soll, hängt an der USt-Frage der WEG.
+
 ---
 
 ## Stand und Fahrplan
 
-**Umgesetzt.** Kategoriesystematik und Abbildung, CSV-Import für beide Quellen mit
-Lückenprüfung, Rechenkette mit Regressionstest, Mehrjahresvergleich, Raumbilanz
-mit Gemeinkostenumlage, Budgetfortschreibung, Streamlit-Oberfläche mit Drilldown
-und umschaltbaren Beschriftungen, Nextcloud-Anbindung, Kommandozeile,
-SQLite-Ablage als Modul.
+**Umgesetzt.** Kategoriesystematik und Abbildung (einschließlich der 2026er-
+Zwischenebenen und der neuen Blätter Freiraum, WEG-Rechnungen, Kaution),
+CSV-Import für beide Quellen mit Lückenprüfung, Rechenkette mit Regressionstest
+gegen Q1–Q2 2026, Mehrjahresvergleich, Raumbilanz mit Gemeinkostenumlage,
+Budgetfortschreibung, Streamlit-Oberfläche mit Drilldown und umschaltbaren
+Beschriftungen, Nextcloud-Anbindung, Kommandozeile, SQLite-Ablage als Modul.
 
-**Für das Treffen.** Reihenfolge, Wortwahl und Kennzahlen folgen dem
-Bestandsblatt, sodass sich beide Auswertungen nebeneinanderlegen lassen. Jede
-Zahl der beiden Referenz-PDFs wird getroffen.
+**Aktueller Bericht.** Q1–Q3 2026 aus den Exporten vom 14.9.2026, Summen und
+offene Fragen in [`berichte/2026-Q1-Q3.md`](berichte/2026-Q1-Q3.md). Die
+Kategoriesummen treffen die EÜR auf den Cent; die bekannten Abweichungen
+(90 Cent Investition, 1 Cent Überschuss, Vorzeichen der WEG-Zeile) sind dort
+dokumentiert.
 
 **Als Nächstes.** PDF-Export des Quartalsberichts, sodass er ohne Nacharbeit an
 Spree VV gehen kann. Anbindung der SQLite-Ablage an die Oberfläche, damit
 Berichte als Schnappschuss festgeschrieben werden.
 
 **Wofür Daten fehlen.** Der Mehrjahresvergleich 2022–2024 braucht die Exporte
-dieser Jahre. Für 2026 fehlt der MoneyMoney-Export; die Rechenkette ist deshalb
-gegen eine anonymisierte Referenzdatei mit den Kategoriesummen aus dem Q2-PDF
-getestet und nicht gegen den echten Export.
+dieser Jahre; die Jahreszeilen stammen weiterhin aus dem Bestandsblatt.
 
 **Später.** Auswertung der rund 2.900 Rechnungs-PDFs, Offene-Posten-Liste,
 Ausfallquote getrennt nach echten Ausfällen und Kulanzentscheidungen,

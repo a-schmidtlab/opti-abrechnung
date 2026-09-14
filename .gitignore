@@ -26,8 +26,10 @@
 *.sqlite3
 *.db
 
-# Erzeugte Berichte
-/berichte/
+# Erzeugte Berichte (Rohdaten und maschinelle Textausgaben)
+/berichte/*
+# Summenberichte ohne Klarnamen und IBANs duerfen ins Repository.
+!/berichte/*.md
 
 # Ausnahmen: anonymisierte Testdaten sind ausdruecklich erwuenscht
 !/tests/fixtures/**/*.csv
