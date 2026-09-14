@@ -34,7 +34,16 @@ from optiabrechnung.einlesen import (
     einlesen_dkb,
     einlesen_moneymoney,
 )
+from optiabrechnung.einstellungen import Einstellungen
+from optiabrechnung.einstellungen import laden as einstellungen_laden
+from optiabrechnung.einstellungen import speichern as einstellungen_speichern
 from optiabrechnung.kategorien import UnbekannteKategorie
+from optiabrechnung.nextcloud import (
+    NextcloudFehler,
+    datei_holen,
+    dateien_suchen,
+    freigabe_lesen,
+)
 from optiabrechnung.oberflaeche.darstellung import (
     buchungstabelle,
     euro,
@@ -56,45 +65,152 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 
 
-@st.cache_data(show_spinner=False)
-def _exporte_finden() -> list[str]:
-    """Sucht im Projektverzeichnis nach MoneyMoney-Exporten.
+MONEYMONEY = "moneymoney"
+DKB = "dkb"
 
-    Erkennungsmerkmal ist die Kopfzeile, nicht der Dateiname: Die Exporte heissen
-    von Jahr zu Jahr unterschiedlich, die Kopfzeile ist dagegen stabil.
+
+def _art_der_datei(pfad: Path) -> str | None:
+    """Erkennt an der Kopfzeile, um welche Art von Export es sich handelt.
+
+    Erkannt wird am Inhalt und nicht am Dateinamen. Die Exporte heissen von Jahr
+    zu Jahr unterschiedlich -- `SF Optionsräume 25.csv`,
+    `2025_Umsatzliste_WEG-Konto Hausgeld_DE26….csv` --, die Kopfzeilen sind
+    dagegen stabil.
     """
-    gefunden = []
-    for pfad in sorted(PROJEKTWURZEL.rglob("*.csv")):
-        try:
-            kopf = pfad.open(encoding="utf-8-sig").readline()
-        except OSError:
-            continue
-        if kopf.startswith("Datum;") and "Kategorie" in kopf:
-            gefunden.append(str(pfad.relative_to(PROJEKTWURZEL)))
-    return gefunden
+    try:
+        anfang = pfad.open(encoding="utf-8-sig", errors="replace").read(4000)
+    except OSError:
+        return None
+    if anfang.startswith("Datum;") and "Kategorie" in anfang.splitlines()[0]:
+        return MONEYMONEY
+    if '"Buchungsdatum"' in anfang:
+        return DKB
+    return None
 
 
 @st.cache_data(show_spinner=False)
-def _kontoauszuege_finden() -> list[str]:
-    gefunden = []
-    for pfad in sorted(PROJEKTWURZEL.rglob("*.csv")):
-        try:
-            inhalt = pfad.open(encoding="utf-8-sig").read(4000)
-        except OSError:
-            continue
-        if '"Buchungsdatum"' in inhalt:
-            gefunden.append(str(pfad.relative_to(PROJEKTWURZEL)))
+def _quellen_finden(ordner: str) -> dict[str, list[str]]:
+    """Durchsucht ein Verzeichnis nach MoneyMoney-Exporten und DKB-Auszuegen."""
+    wurzel = Path(ordner)
+    gefunden: dict[str, list[str]] = {MONEYMONEY: [], DKB: []}
+    if not wurzel.is_dir():
+        return gefunden
+    for pfad in sorted(wurzel.rglob("*.csv")):
+        art = _art_der_datei(pfad)
+        if art:
+            gefunden[art].append(str(pfad))
     return gefunden
 
 
 @st.cache_data(show_spinner="Export wird eingelesen …")
-def _buchungen_laden(relativer_pfad: str):
-    return einlesen_moneymoney(PROJEKTWURZEL / relativer_pfad)
+def _buchungen_laden(pfad: str):
+    return einlesen_moneymoney(Path(pfad))
 
 
 @st.cache_data(show_spinner="Kontoauszug wird eingelesen …")
-def _auszug_laden(relativer_pfad: str):
-    return einlesen_dkb(PROJEKTWURZEL / relativer_pfad)
+def _auszug_laden(pfad: str):
+    return einlesen_dkb(Path(pfad))
+
+
+# ---------------------------------------------------------------------------
+# Nextcloud
+# ---------------------------------------------------------------------------
+
+
+def _nextcloud_abrufen(link: str, passwort: str) -> tuple[Path, int]:
+    """Holt alle CSV-Dateien einer Nextcloud-Freigabe in den Zwischenspeicher.
+
+    Gibt das Verzeichnis des Zwischenspeichers und die Anzahl der Dateien
+    zurueck. Danach arbeitet der Rest der Oberflaeche auf gewoehnlichen
+    Dateien -- die Nextcloud-Anbindung ist damit auf diese eine Stelle begrenzt.
+    """
+    freigabe = freigabe_lesen(link, passwort)
+    eintraege = dateien_suchen(freigabe, endungen=(".csv",))
+    fortschritt = st.sidebar.progress(0.0, text="Dateiliste gelesen …")
+    for nummer, eintrag in enumerate(eintraege, start=1):
+        datei_holen(freigabe, eintrag, ordner=PROJEKTWURZEL / "daten" / "nextcloud")
+        fortschritt.progress(nummer / len(eintraege), text=f"{eintrag.name} geladen")
+    fortschritt.empty()
+    return PROJEKTWURZEL / "daten" / "nextcloud" / freigabe.token, len(eintraege)
+
+
+def _datenquelle_waehlen(einstellungen: Einstellungen) -> Path | None:
+    """Zeigt die Auswahl der Datenquelle und liefert das Verzeichnis mit den Dateien."""
+    arten = {"lokal": "Lokaler Ordner", "nextcloud": "Nextcloud-Freigabe"}
+    quelle = st.sidebar.radio(
+        "Datenquelle",
+        list(arten),
+        format_func=lambda schluessel: arten[schluessel],
+        index=list(arten).index(einstellungen.quelle),
+        horizontal=True,
+        help=(
+            "„Lokaler Ordner“ passt auch für einen mit Nextcloud oder Synology Drive "
+            "synchronisierten Ordner auf diesem Rechner. „Nextcloud-Freigabe“ liest "
+            "die Dateien direkt aus einem geteilten Ordner."
+        ),
+    )
+
+    if quelle == "lokal":
+        ordner = st.sidebar.text_input(
+            "Verzeichnis",
+            value=einstellungen.lokaler_ordner or str(PROJEKTWURZEL),
+            help="Wird einschließlich Unterverzeichnissen durchsucht.",
+        )
+        if ordner != einstellungen.lokaler_ordner or quelle != einstellungen.quelle:
+            einstellungen.quelle = quelle
+            einstellungen.lokaler_ordner = ordner
+            einstellungen_speichern(einstellungen, PROJEKTWURZEL / "daten/einstellungen.json")
+        pfad = Path(ordner).expanduser()
+        if not pfad.is_dir():
+            st.sidebar.error(f"„{ordner}“ ist kein Verzeichnis.")
+            return None
+        return pfad
+
+    link = st.sidebar.text_input(
+        "Nextcloud-Freigabelink",
+        value=einstellungen.nextcloud_link,
+        placeholder="https://cloud.example.org/s/AbCdEf123",
+        help=(
+            "In Nextcloud den Ordner mit den Exporten über „Teilen“ → „Link teilen“ "
+            "freigeben und den erzeugten Link hier einfügen."
+        ),
+    )
+    passwort = st.sidebar.text_input(
+        "Passwort der Freigabe",
+        type="password",
+        help=(
+            "Nur nötig, wenn die Freigabe passwortgeschützt ist. Das Passwort wird "
+            "nicht gespeichert und ist nach dem Schließen des Tools wieder weg."
+        ),
+    )
+
+    if st.sidebar.button("Dateien abrufen", type="primary", use_container_width=True):
+        try:
+            ordner, anzahl = _nextcloud_abrufen(link, passwort)
+        except NextcloudFehler as fehler:
+            st.sidebar.error(str(fehler))
+            return None
+        einstellungen.quelle = quelle
+        einstellungen.nextcloud_link = link
+        einstellungen_speichern(einstellungen, PROJEKTWURZEL / "daten/einstellungen.json")
+        st.session_state["nextcloud_ordner"] = str(ordner)
+        _quellen_finden.clear()
+        st.sidebar.success(f"{anzahl} CSV-Dateien geladen.")
+
+    zwischenspeicher = st.session_state.get("nextcloud_ordner")
+    if zwischenspeicher:
+        st.sidebar.caption(
+            "Gearbeitet wird auf dem lokalen Zwischenspeicher der Freigabe. "
+            "„Dateien abrufen“ holt den aktuellen Stand."
+        )
+        return Path(zwischenspeicher)
+
+    st.sidebar.info(
+        "Link eingeben und „Dateien abrufen“ wählen. Beim ersten Mal kann das einen "
+        "Moment dauern.",
+        icon="ℹ",
+    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -106,15 +222,28 @@ def _seitenleiste():
     st.sidebar.title("Optionsräume Spreefeld")
     st.sidebar.caption(f"Abrechnungstool, Fassung {__version__} · Phase 0")
 
-    exporte = _exporte_finden()
-    if not exporte:
-        st.sidebar.error(
-            "Kein MoneyMoney-Export gefunden. Erwartet wird eine CSV-Datei mit der "
-            "Kopfzeile `Datum;Wertstellung;Kategorie;…` irgendwo im Projektverzeichnis."
+    einstellungen = einstellungen_laden(PROJEKTWURZEL / "daten/einstellungen.json")
+    ordner = _datenquelle_waehlen(einstellungen)
+    if ordner is None:
+        st.info(
+            "Bitte links eine Datenquelle wählen. Benötigt wird der MoneyMoney-Export "
+            "mit Kategorien; der DKB-Kontoauszug kommt für die Lückenprüfung hinzu.",
+            icon="ℹ",
         )
         st.stop()
 
-    quelle = st.sidebar.selectbox("MoneyMoney-Export", exporte, format_func=lambda p: Path(p).name)
+    st.sidebar.divider()
+    quellen = _quellen_finden(str(ordner))
+    if not quellen[MONEYMONEY]:
+        st.sidebar.error(
+            "Kein MoneyMoney-Export gefunden. Erwartet wird eine CSV-Datei mit der "
+            "Kopfzeile `Datum;Wertstellung;Kategorie;…`."
+        )
+        st.stop()
+
+    quelle = st.sidebar.selectbox(
+        "MoneyMoney-Export", quellen[MONEYMONEY], format_func=lambda p: Path(p).name
+    )
 
     try:
         buchungen = _buchungen_laden(quelle)
@@ -149,7 +278,8 @@ def _seitenleiste():
         f"{len(buchungen)} Buchungen gelesen, davon "
         f"{sum(1 for b in buchungen if zeitraum.enthaelt(b.datum))} im gewählten Zeitraum."
     )
-    return buchungen, zeitraum
+    st.sidebar.caption(f"Quelle: {Path(quelle).name}")
+    return buchungen, zeitraum, quellen[DKB]
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +456,7 @@ def seite_raumbilanz(kette) -> None:
 # ---------------------------------------------------------------------------
 
 
-def seite_pruefung(buchungen, kette) -> None:
+def seite_pruefung(buchungen, kette, auszuege: list[str]) -> None:
     st.header("Kategorisierungs-Prüfung")
     st.caption(
         "MoneyMoney bleibt das führende System. Das Tool prüft auf Lücken und "
@@ -341,11 +471,10 @@ def seite_pruefung(buchungen, kette) -> None:
         st.success("Keine Investitionen und keine unklaren Buchungen im Zeitraum.", icon="✓")
 
     st.subheader("Lückenprüfung gegen den Kontoauszug")
-    auszuege = _kontoauszuege_finden()
     if not auszuege:
         st.info(
-            "Kein DKB-Kontoauszug gefunden. Für die Lückenprüfung wird eine "
-            "Umsatzliste der DKB im CSV-Format benötigt.",
+            "Kein DKB-Kontoauszug in der gewählten Datenquelle gefunden. Für die "
+            "Lückenprüfung wird eine Umsatzliste der DKB im CSV-Format benötigt.",
             icon="ℹ",
         )
         return
@@ -486,7 +615,7 @@ def seite_parameter(kette) -> None:
 
 
 def hauptprogramm() -> None:
-    buchungen, zeitraum = _seitenleiste()
+    buchungen, zeitraum, auszuege = _seitenleiste()
 
     try:
         kette = rechenkette(buchungen, zeitraum)
@@ -502,7 +631,7 @@ def hauptprogramm() -> None:
     with bilanz:
         seite_raumbilanz(kette)
     with pruefung:
-        seite_pruefung(buchungen, kette)
+        seite_pruefung(buchungen, kette, auszuege)
     with budget:
         seite_budget(kette)
     with parameter:
