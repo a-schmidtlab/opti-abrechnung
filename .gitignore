@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------
+# Echtdaten: NIEMALS ins Repository.
+#
+# Das Repository ist oeffentlich. Die Rohdaten enthalten Klarnamen von
+# Nutzerinnen, IBANs und Verwendungszwecke -- personenbezogene Daten nach
+# DSGVO. Ausgeschlossen wird daher pauschal alles, was nach Rohdaten aussieht,
+# und einzelne unkritische Dateien werden per "!" wieder aufgenommen.
+# ---------------------------------------------------------------------------
+
+# Rechnungsbestand (~2.900 PDFs) und alle Auswertungen darin
+/Rechnungen/
+
+# Kontoauszuege, MoneyMoney-Exporte, Belege
+/daten/
+*.csv
+*.xlsx
+*.xls
+
+# Bestandsdokumente und Referenzauswertungen im Projektwurzelverzeichnis
+*.pdf
+*.docx
+
+# Die Datenbank enthaelt die importierten Einzelbuchungen
+*.sqlite
+*.sqlite3
+*.db
+
+# Erzeugte Berichte
+/berichte/
+
+# Ausnahmen: anonymisierte Testdaten sind ausdruecklich erwuenscht
+!/tests/fixtures/**/*.csv
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Werkzeuge und Betriebssystem
+# ---------------------------------------------------------------------------
+.streamlit/secrets.toml
+.DS_Store
+.idea/
+.vscode/
+*~
+*.swp
+@eaDir/

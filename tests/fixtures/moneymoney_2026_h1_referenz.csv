@@ -1,0 +1,25 @@
+Datum;Wertstellung;Kategorie;Name;Verwendungszweck;Konto;Bank;Betrag;Währung
+15.02.2026;15.02.2026;SF Optionsräume - Bootshaus - BH Buchungen;Mieterin A;Sammelposition Einnahmen Bootshaus Q1-Q2 2026;DE00000000000000000001;TESTDEBB;8.622,32;EUR
+16.02.2026;16.02.2026;SF Optionsräume - Optionsraum 2 - O2 Buchungen;Mieterin B;Sammelposition Einnahmen Optionsraum 2 Q1-Q2 2026;DE00000000000000000002;TESTDEBB;14.217,39;EUR
+17.02.2026;17.02.2026;SF Optionsräume - Optionsraum O3;Mieterin C;Sammelposition Einnahmen Optionsraum 3 Q1-Q2 2026;DE00000000000000000003;TESTDEBB;21.920,93;EUR
+18.02.2026;18.02.2026;SF Optionsräume - Werkstatt;Mieterin D;Sammelposition Einnahmen Werkstatt Q1-Q2 2026;DE00000000000000000004;TESTDEBB;6.426,00;EUR
+19.03.2026;19.03.2026;SF Optionsräume - Betrieb & Erhaltung - Koordination;Koordination;Sammelposition Koordination Q1-Q2 2026;DE00000000000000000005;TESTDEBB;-8.895,84;EUR
+20.03.2026;20.03.2026;SF Optionsräume - Betrieb & Erhaltung - Reinigung;Reinigungsdienst;Sammelposition Reinigung Q1-Q2 2026;DE00000000000000000006;TESTDEBB;-4.224,50;EUR
+21.03.2026;21.03.2026;SF Optionsräume - Betrieb & Erhaltung - Bootshaus Erhaltung;Baumarkt;Sammelposition Bootshaus Erhaltung Q1-Q2 2026;DE00000000000000000007;TESTDEBB;-1.859,43;EUR
+22.03.2026;22.03.2026;SF Optionsräume - Betrieb & Erhaltung - Optionsraum 2 Erhaltung;Baumarkt;Sammelposition Optionsraum 2 Erhaltung Q1-Q2 2026;DE00000000000000000008;TESTDEBB;0,00;EUR
+23.03.2026;23.03.2026;SF Optionsräume - Betrieb & Erhaltung - Optionsraum 3 Erhaltung;Baumarkt;Sammelposition Optionsraum 3 Erhaltung Q1-Q2 2026;DE00000000000000000009;TESTDEBB;-1.266,66;EUR
+24.03.2026;24.03.2026;SF Optionsräume - Betrieb & Erhaltung - Werkstatt Erhaltung;Baumarkt;Sammelposition Werkstatt Erhaltung Q1-Q2 2026;DE00000000000000000010;TESTDEBB;-2.241,91;EUR
+25.04.2026;25.04.2026;SF Optionsräume - Betrieb & Erhaltung - Buha Klier+Ott;Klier und Ott;Sammelposition Buchhaltung Q1-Q2 2026;DE00000000000000000011;TESTDEBB;-78,19;EUR
+26.04.2026;26.04.2026;SF Optionsräume - Betrieb & Erhaltung - Material Verbrauch;Baumarkt;Sammelposition Verbrauchskosten Q1-Q2 2026;DE00000000000000000012;TESTDEBB;-2.386,92;EUR
+27.04.2026;27.04.2026;SF Optionsräume - Betrieb & Erhaltung - Bank;DKB AG;Sammelposition Bankgebühren Q1-Q2 2026;;;-27,00;EUR
+28.04.2026;28.04.2026;SF Optionsräume - Betrieb & Erhaltung - unklar;Unbekannt;Sammelposition unklar Q1-Q2 2026;DE00000000000000000013;TESTDEBB;-376,95;EUR
+29.05.2026;29.05.2026;SF Optionsräume - Investitionen Kuratoren - Bootshaus invest;Fachhandel;Sammelposition Bootshaus Investition Q1-Q2 2026;DE00000000000000000014;TESTDEBB;0,00;EUR
+30.05.2026;30.05.2026;SF Optionsräume - Investitionen Kuratoren - Optionsraum 2 invest;Fachhandel;Sammelposition Optionsraum 2 Investition Q1-Q2 2026;DE00000000000000000015;TESTDEBB;0,00;EUR
+31.05.2026;31.05.2026;SF Optionsräume - Investitionen Kuratoren - Optionsraum 3 invest;Fachhandel;Sammelposition Optionsraum 3 Investition Q1-Q2 2026;DE00000000000000000016;TESTDEBB;-174,90;EUR
+01.06.2026;01.06.2026;SF Optionsräume - Investitionen Kuratoren - Werkstatt invest;Fachhandel;Sammelposition Werkstatt Investition Q1-Q2 2026;DE00000000000000000017;TESTDEBB;0,00;EUR
+02.06.2026;02.06.2026;SF Optionsräume - WEG - Ust;Finanzamt;Durchlaufend, darf die Rechenkette nicht beeinflussen;DE00000000000000000018;TESTDEBB;-11.284,00;EUR
+03.06.2026;03.06.2026;SF Optionsräume - WEG - Nebenkosten WEG;WEG Spreefeld;Durchlaufend, Nebenkosten sind Parameter der Kette;DE00000000000000000019;TESTDEBB;-13.942,75;EUR
+04.06.2026;04.06.2026;SF Optionsräume - WEG - WEG Entnahme;WEG Spreefeld;Durchlaufend, darf die Rechenkette nicht beeinflussen;DE00000000000000000020;TESTDEBB;-6.285,60;EUR
+05.06.2026;05.06.2026;SF Optionsräume - Rückbuchungen;Mieterin E;Durchlaufend, darf die Rechenkette nicht beeinflussen;DE00000000000000000021;TESTDEBB;40,00;EUR
+06.06.2026;06.06.2026;SF Optionsräume - WEG - Gästezimmer;Gast;Durchlaufend, darf die Rechenkette nicht beeinflussen;DE00000000000000000022;TESTDEBB;120,00;EUR
+12.10.2026;12.10.2026;SF Optionsräume - Optionsraum O3;Mieterin F;Ausserhalb des Zeitraums, darf nicht mitgezaehlt werden;DE00000000000000000023;TESTDEBB;999,99;EUR
