@@ -14,19 +14,18 @@ beschreibt, was das Tool tut und wie man es benutzt.
 ## Inhalt
 
 1. [Zusammenfassung](#zusammenfassung)
-2. [Datenschutz — bitte zuerst lesen](#datenschutz--bitte-zuerst-lesen)
-3. [Einrichtung](#einrichtung)
-4. [Datenquelle einrichten](#datenquelle-einrichten)
-5. [Bedienung der sechs Ansichten](#bedienung-der-sechs-ansichten)
-6. [Kommandozeile](#kommandozeile)
-7. [Wie gerechnet wird](#wie-gerechnet-wird)
-8. [Aufbau des Codes](#aufbau-des-codes)
-9. [Tests](#tests)
-10. [Was das Tool nicht tut](#was-das-tool-nicht-tut)
-11. [Befunde aus den Bestandsdaten](#befunde-aus-den-bestandsdaten)
-12. [Offene fachliche Fragen](#offene-fachliche-fragen)
-13. [Stand und Fahrplan](#stand-und-fahrplan)
-14. [Fehlersuche](#fehlersuche)
+2. [Einrichtung](#einrichtung)
+3. [Datenquelle einrichten](#datenquelle-einrichten)
+4. [Bedienung der sechs Ansichten](#bedienung-der-sechs-ansichten)
+5. [Kommandozeile](#kommandozeile)
+6. [Wie gerechnet wird](#wie-gerechnet-wird)
+7. [Aufbau des Codes](#aufbau-des-codes)
+8. [Tests](#tests)
+9. [Was das Tool nicht tut](#was-das-tool-nicht-tut)
+10. [Befunde aus den Bestandsdaten](#befunde-aus-den-bestandsdaten)
+11. [Offene fachliche Fragen](#offene-fachliche-fragen)
+12. [Stand und Fahrplan](#stand-und-fahrplan)
+13. [Fehlersuche](#fehlersuche)
 
 ---
 
@@ -55,33 +54,6 @@ neue Systematik, sondern automatisiert und dokumentiert die bestehende.
 den Exporten einfügen, Jahr und Quartal wählen, und den Quartalsbericht auf dem
 Bildschirm haben — mit der Möglichkeit, bei jeder Summe nachzusehen, welche
 Buchungen darin stecken.
-
----
-
-## Datenschutz — bitte zuerst lesen
-
-**Dieses Repository ist öffentlich. Es enthält keine Echtdaten und darf keine
-enthalten.**
-
-Die Rohdaten führen Klarnamen von Nutzerinnen, IBANs und Verwendungszwecke, also
-personenbezogene Daten im Sinne der DSGVO. Die [`.gitignore`](.gitignore)
-schließt Kontoauszüge, MoneyMoney-Exporte, Rechnungs-PDFs, den
-Nextcloud-Zwischenspeicher und die SQLite-Datenbank pauschal aus. Vor jedem
-Commit lohnt ein Blick auf `git status`.
-
-Drei Punkte, die im Code umgesetzt sind und beim Weiterentwickeln nicht verloren
-gehen sollten:
-
-- **Keine Namen im Quelltext.** Die personenbezogenen Unterkategorien der
-  Dauermieterinnen werden über ihre Position im Kategoriepfad erkannt, nicht über
-  eine Liste von Namen. Der Test
-  `test_die_abbildung_enthaelt_keine_personennamen` schlägt an, falls jemand die
-  Liste wieder einfügt.
-- **Anonymisierte Testdaten.** Die Dateien unter `tests/fixtures/` tragen die
-  echten Kategoriesummen der Bestandsauswertung, aber erfundene Namen und IBANs.
-- **Kein Freigabepasswort auf der Platte.** Das Passwort einer
-  Nextcloud-Freigabe wird nicht gespeichert. Der Freigabelink selbst wird in
-  `daten/einstellungen.json` gemerkt, und dieses Verzeichnis ist ausgeschlossen.
 
 ---
 
