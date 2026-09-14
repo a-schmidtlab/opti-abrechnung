@@ -186,6 +186,48 @@ def parameter_fuer(jahr: int) -> Jahresparameter:
 
 
 # ---------------------------------------------------------------------------
+# Zeitraumbezogene Anrechnungen (nicht je Jahr, sondern je Bericht)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Zeitraumparameter:
+    """Werte, die nur fuer einen bestimmten Bericht gelten, nicht fuer das Jahr.
+
+    Die Anrechnung bereits bezahlter WEG-Rechnungen gehoert hierher und nicht
+    zu den Jahresparametern: Wuerde sie am Jahr haengen, verzerrte sie jeden
+    anderen Bericht desselben Jahres -- etwa Q1-Q2 2026.
+    """
+
+    anrechnung_weg_rechnungen: Decimal = Decimal(0)
+    """Bereits vom Optionsraumkonto bezahlte WEG-Rechnungen, als Anrechnung auf
+    die noch zu leistende Ueberweisung. Vorzeichen: positiv, weil sie den
+    Abfluss an die WEG mindert."""
+
+    herkunft: str = ""
+
+
+ZEITRAUM_PARAMETER: dict[tuple[int, int, int], Zeitraumparameter] = {
+    (2026, 1, 3): Zeitraumparameter(
+        anrechnung_weg_rechnungen=Decimal("36534.66"),
+        herkunft=(
+            "EUER Q1-Q3 2026, Zeile 'abz. bezahlte Rechnungen von WEG'. "
+            "Die MoneyMoney-Kategorie 'WEG Rechnungen bezahlt' summiert im "
+            "selben Zeitraum -43.476,24 EUR; die Differenz 6.941,58 EUR ist "
+            "aus den Einzelbuchungen nicht rekonstruierbar. Bis zur Klaerung "
+            "gilt der Blattwert."
+        ),
+    ),
+}
+
+
+def zeitraumparameter_fuer(zeitraum: Zeitraum) -> Zeitraumparameter:
+    """Liefert die Anrechnungen eines Zeitraums; fehlende gelten als null."""
+    schluessel = (zeitraum.jahr, zeitraum.erstes_quartal, zeitraum.letztes_quartal)
+    return ZEITRAUM_PARAMETER.get(schluessel, Zeitraumparameter())
+
+
+# ---------------------------------------------------------------------------
 # Kuratorenbudget der Vorjahre
 # ---------------------------------------------------------------------------
 

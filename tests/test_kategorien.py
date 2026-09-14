@@ -101,6 +101,17 @@ def test_umhaengung_zwischen_2025_und_2026_aendert_die_zuordnung_nicht(
     assert zuordnen(schreibweise_2025) == zuordnen(schreibweise_2026)
 
 
+def test_einnahmen_unter_neuer_ebene_2026():
+    """2026 haengen die Einnahmen unter `Einnahmen`, die Kosten unter
+    `Ausgaben Betrieb & Erhaltung`. Die Blattabbildung muss trotzdem greifen."""
+    ziel = zuordnen("SF Optionsräume - Einnahmen - Optionsraum 2 - Erika Mustermann")
+    assert ziel.raum is Raum.OPTIONSRAUM_2
+    assert ziel.einnahmeart is Einnahmeart.DAUERMIETE
+    assert zuordnen(
+        "SF Optionsräume - Ausgaben Betrieb & Erhaltung - Koordination"
+    ).kostenart is Kostenart.KOORDINATION
+
+
 @pytest.mark.parametrize(
     ("alt", "neu"),
     [
@@ -134,7 +145,11 @@ def test_vereinheitlichen_fasst_mehrfache_leerzeichen_zusammen():
         ("SF Optionsräume - WEG - Nebenkosten WEG", Durchlaufart.NEBENKOSTEN_WEG),
         ("SF Optionsräume - WEG - WEG Entnahme", Durchlaufart.WEG_ENTNAHME),
         ("SF Optionsräume - Rückbuchungen", Durchlaufart.RUECKBUCHUNG),
+        ("SF Optionsräume - Rückbuchung/Kaution", Durchlaufart.RUECKBUCHUNG),
         ("SF Optionsräume - WEG - Gästezimmer", Durchlaufart.GAESTEZIMMER),
+        ("SF Optionsräume - WEG - Re diverse / Gästezimmer", Durchlaufart.GAESTEZIMMER),
+        ("SF Optionsräume - Freiraum", Durchlaufart.FREIRAUM),
+        ("SF Optionsräume - WEG - WEG Rechnungen bezahlt", Durchlaufart.WEG_RECHNUNGEN),
     ],
 )
 def test_durchlaufende_posten(pfad, durchlaufart):

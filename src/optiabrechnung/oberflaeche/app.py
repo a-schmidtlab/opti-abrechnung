@@ -407,6 +407,10 @@ def seite_quartalsbericht(kette) -> None:
     st.subheader("Abführung an die WEG")
     _zwischensumme("50 % Überschuss an WEG (netto)", kette.weg_anteil_netto)
     _zwischensumme(kette.nebenkosten.bezeichnung, kette.nebenkosten.betrag)
+    if kette.anrechnung_weg.betrag:
+        _zwischensumme(kette.anrechnung_weg.bezeichnung, kette.anrechnung_weg.betrag)
+        if kette.anrechnung_weg.herkunft:
+            st.caption(kette.anrechnung_weg.herkunft)
     _zwischensumme("abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale)
     _zwischensumme("Überweisung auf Hauptkonto", kette.ueberweisung_weg)
 

@@ -239,6 +239,13 @@ def test_abschlaege_vorige_quartale_stehen_in_der_kette(kette):
     assert kette.abschlaege_vorige_quartale == Decimal("0")
 
 
+def test_anrechnung_weg_rechnungen_gilt_nur_fuer_q1_q3_2026(kette):
+    """Die Anrechnung aus der EUER Q1-Q3 2026 darf Q1-Q2 nicht verzerren."""
+    assert kette.anrechnung_weg.betrag == Decimal("0")
+    kette_q3 = rechenkette([], Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=3))
+    assert kette_q3.anrechnung_weg.betrag == Decimal("36534.66")
+
+
 @pytest.mark.parametrize(
     ("geklaert", "im_bestand"),
     [

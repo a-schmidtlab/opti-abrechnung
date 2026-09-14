@@ -118,8 +118,15 @@ class Buchung:
         Bewusst ohne Verwendungszweck: MoneyMoney haengt an diesen noch
         `, Umsatzart: ...` an, der DKB-Auszug nicht. Datum, Betrag und IBAN
         beschreiben dieselbe Buchung in beiden Quellen identisch.
+
+        Der Betrag wird auf zwei Nachkommastellen normiert: Die DKB schreibt
+        glatte Euro als `320`, MoneyMoney als `320,00`. Ohne Normierung waeren
+        das zwei verschiedene Kennungen fuer dieselbe Buchung.
         """
-        roh = f"{self.datum.isoformat()}|{self.betrag}|{self.iban}"
+        iban = self.iban.strip()
+        if set(iban) <= {"0"}:
+            iban = ""
+        roh = f"{self.datum.isoformat()}|{self.betrag.quantize(Decimal('0.01'))}|{iban}"
         return hashlib.sha256(roh.encode("utf-8")).hexdigest()[:16]
 
     @property

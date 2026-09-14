@@ -28,6 +28,7 @@ from .parameter import (
     Jahresparameter,
     Zeitraum,
     parameter_fuer,
+    zeitraumparameter_fuer,
 )
 
 CENT = Decimal("0.01")
@@ -167,6 +168,8 @@ class Rechenkette:
     investitionen: tuple[Posten, ...]
     nebenkosten: Posten
     internet: Posten
+    anrechnung_weg: Posten
+    """Bereits bezahlte WEG-Rechnungen, angerechnet auf die Ueberweisung."""
 
     einnahmen_je_raum_und_art: dict[tuple[Raum, Einnahmeart], Posten] = field(
         default_factory=dict
@@ -243,9 +246,12 @@ class Rechenkette:
 
     @property
     def ueberweisung_weg(self) -> Decimal:
-        """Netto-Ueberschussanteil, Nebenkosten des Zeitraums, abzueglich Abschlaege."""
+        """Netto-Ueberschussanteil, Nebenkosten, Abschlaege, Anrechnung WEG-Rechnungen."""
         return (
-            self.weg_anteil_netto + self.nebenkosten.betrag + self.abschlaege_vorige_quartale
+            self.weg_anteil_netto
+            + self.nebenkosten.betrag
+            + self.abschlaege_vorige_quartale
+            + self.anrechnung_weg.betrag
         )
 
     # --- Hinweise ----------------------------------------------------------
@@ -329,6 +335,13 @@ def rechenkette(
         for raum in RAEUME
     ]
 
+    zeitraumwerte = zeitraumparameter_fuer(zeitraum)
+    anrechnung = Posten(
+        bezeichnung="abz. bezahlte Rechnungen von WEG",
+        betrag=zeitraumwerte.anrechnung_weg_rechnungen,
+        herkunft=zeitraumwerte.herkunft,
+    )
+
     return Rechenkette(
         zeitraum=zeitraum,
         parameter=parameter,
@@ -342,6 +355,7 @@ def rechenkette(
             zeitraum,
         ),
         internet=_internetposten(auswahl, parameter, zeitraum),
+        anrechnung_weg=anrechnung,
         einnahmen_je_raum_und_art=einnahmen_detail,
         unzugeordnet=tuple(b for b in auswahl if b.zielkategorie is None),
     )

@@ -107,6 +107,8 @@ def hauptprogramm(argv: list[str] | None = None) -> int:
     print("\nAbführung an die WEG")
     print(_zeile("  50 % Überschuss an WEG (netto)", kette.weg_anteil_netto))
     print(_zeile(f"  {kette.nebenkosten.bezeichnung}", kette.nebenkosten.betrag))
+    if kette.anrechnung_weg.betrag:
+        print(_zeile(f"  {kette.anrechnung_weg.bezeichnung}", kette.anrechnung_weg.betrag))
     print(_zeile("  abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale))
     print(_zeile("Überweisung auf Hauptkonto", kette.ueberweisung_weg, hervorgehoben=True))
 

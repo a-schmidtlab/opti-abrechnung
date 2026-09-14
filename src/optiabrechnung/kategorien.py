@@ -79,6 +79,8 @@ class Durchlaufart(Enum):
     WEG_DIREKT = "WEG direkt"
     RUECKBUCHUNG = "Rueckbuchung"
     GAESTEZIMMER = "Gaestezimmer"
+    FREIRAUM = "Freiraum"
+    WEG_RECHNUNGEN = "WEG-Rechnungen, vom Optionsraumkonto bezahlt"
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,7 +233,14 @@ ABBILDUNG: dict[str, Zielkategorie] = {
     "weg entnahme": _durchlaufend(Durchlaufart.WEG_ENTNAHME),
     "weg direkt": _durchlaufend(Durchlaufart.WEG_DIREKT),
     "rueckbuchungen": _durchlaufend(Durchlaufart.RUECKBUCHUNG),
+    "rueckbuchung/kaution": _durchlaufend(Durchlaufart.RUECKBUCHUNG),
     "gaestezimmer": _durchlaufend(Durchlaufart.GAESTEZIMMER),
+    "re diverse / gaestezimmer": _durchlaufend(Durchlaufart.GAESTEZIMMER),
+    # 2026: Ausgaben fuer den Freiraum und WEG-Handwerkerrechnungen laufen
+    # ueber dasselbe Konto, gehoeren aber nicht in die Auswertung der Raeume
+    # (PLANUNG.md, Abschnitt 8). Sie bleiben durchlaufend.
+    "freiraum": _durchlaufend(Durchlaufart.FREIRAUM),
+    "weg rechnungen bezahlt": _durchlaufend(Durchlaufart.WEG_RECHNUNGEN),
 }
 
 
