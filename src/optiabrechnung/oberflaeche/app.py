@@ -25,6 +25,7 @@ from optiabrechnung import __version__
 from optiabrechnung.auswertung import (
     budgetfortschreibung,
     budgetjahr_aus_kette,
+    mehrjahresvergleich,
     raumbilanz,
     rechenkette,
 )
@@ -274,6 +275,19 @@ def _seitenleiste():
     zeitraum = Zeitraum(jahr=jahr, erstes_quartal=auswahl[0], letztes_quartal=auswahl[1])
 
     st.sidebar.divider()
+    st.sidebar.toggle(
+        "Beschriftungen wie im Bestandsbericht",
+        key="bestandsbeschriftung",
+        value=True,
+        help=(
+            "Eingeschaltet stehen die Zeilen so da wie im bisherigen Blatt "
+            "(„Buha Klier+Ott“, „Bank“). Das ist für den Vergleich Zeile für Zeile "
+            "gedacht. Ausgeschaltet erscheinen die geklärten Bezeichnungen, wie sie "
+            "in einen Bericht an Spree VV gehören."
+        ),
+    )
+
+    st.sidebar.divider()
     st.sidebar.caption(
         f"{len(buchungen)} Buchungen gelesen, davon "
         f"{sum(1 for b in buchungen if zeitraum.enthaelt(b.datum))} im gewählten Zeitraum."
@@ -287,10 +301,14 @@ def _seitenleiste():
 # ---------------------------------------------------------------------------
 
 
+def _wie_im_bestand() -> bool:
+    return bool(st.session_state.get("bestandsbeschriftung", True))
+
+
 def _posten_mit_drilldown(posten, *, einrueckung: str = "") -> None:
     """Zeigt einen Posten als aufklappbare Zeile mit seinen Einzelbuchungen."""
     spalte_bezeichnung, spalte_betrag = st.columns([5, 1])
-    beschriftung = f"{einrueckung}{posten.bezeichnung}"
+    beschriftung = f"{einrueckung}{posten.beschriftung(wie_im_bestand=_wie_im_bestand())}"
     if posten.pruefbedarf and posten.betrag:
         beschriftung += "  ⚑"
 
@@ -320,11 +338,10 @@ def _zwischensumme(bezeichnung: str, betrag) -> None:
 
 
 def seite_quartalsbericht(kette) -> None:
-    st.header(f"Quartalsbericht · {kette.zeitraum.bezeichnung}")
+    st.header(f"Umsätze Optionsräume · {kette.zeitraum.bezeichnung}")
     st.caption(
-        "Jede Zeile ist aufklappbar bis auf die einzelne Bankbuchung. Die mit ⚑ "
-        "markierten Posten sind ausdrücklich vorzulegen: Investitionen, weil die "
-        "Abgrenzung zur Erhaltung nicht automatisierbar ist, und „unklar“."
+        f"Zeitraum {kette.zeitraum.beginn.strftime('%d.%m.%Y')} bis "
+        f"{kette.zeitraum.ende.strftime('%d.%m.%Y')} · alle Beträge brutto"
     )
 
     if kette.unzugeordnet:
@@ -333,15 +350,31 @@ def seite_quartalsbericht(kette) -> None:
             "Die Auswertung ist damit unvollständig."
         )
 
-    oben = st.columns(4)
+    # Fuenf Kennzahlen in der Reihenfolge und Wortwahl der Kurzuebersicht des
+    # Bestandsblattes, damit sich beide unmittelbar vergleichen lassen.
+    oben = st.columns(5)
     oben[0].metric("Einnahmen Vermietung", euro(kette.einnahmen_gesamt))
-    oben[1].metric("Überschuss gesamt", euro(kette.ueberschuss_gesamt))
-    oben[2].metric("Budget Kuratoren verfügbar", euro(kette.budget_verfuegbar))
-    oben[3].metric("Überweisung an die WEG", euro(kette.ueberweisung_weg))
+    oben[1].metric(
+        "Ausgaben gesamt",
+        euro(kette.ausgaben_gesamt),
+        help=(
+            "Betrieb & Erhaltung, Nebenkosten und Internet zusammen. Das "
+            "Bestandsblatt nennt diese Zeile „Ausgaben Betrieb & Erhaltung“, "
+            "obwohl Nebenkosten und Internet mit enthalten sind."
+        ),
+    )
+    oben[2].metric("Überschuss gesamt", euro(kette.ueberschuss_gesamt))
+    oben[3].metric("Budget Kuratoren", euro(kette.budget_verfuegbar))
+    oben[4].metric("Überschuss & Nebenkosten an WEG", euro(kette.ueberweisung_weg))
 
     st.divider()
+    st.caption(
+        "Jede Zeile ist aufklappbar bis auf die einzelne Bankbuchung. Die mit ⚑ "
+        "markierten Posten sind ausdrücklich vorzulegen: Investitionen, weil die "
+        "Abgrenzung zur Erhaltung nicht automatisierbar ist, und „unklar“."
+    )
 
-    st.subheader("Einnahmen Vermietung")
+    st.subheader("Einnahmen")
     for posten in kette.einnahmen:
         _posten_mit_drilldown(posten)
     _zwischensumme("Summe Einnahmen", kette.einnahmen_gesamt)
@@ -352,24 +385,30 @@ def seite_quartalsbericht(kette) -> None:
     _zwischensumme("Summe Betrieb & Erhaltung", kette.betriebskosten_gesamt)
 
     st.subheader("Weitere Positionen der Kette")
+    st.caption(
+        "Beide Zeilen stehen auch im Bestandsblatt, dort unbeschriftet neben den "
+        "Betriebskosten bzw. am Seitenfuß."
+    )
     _posten_mit_drilldown(kette.nebenkosten)
     _posten_mit_drilldown(kette.internet)
 
     st.divider()
     _zwischensumme("Überschuss gesamt", kette.ueberschuss_gesamt)
 
-    st.subheader("Investitionsbudget der Kuratoren")
+    st.subheader("Investitionen Kuratoren")
     _zwischensumme(
-        "50 % Überschuss als Budgetzuführung (brutto)", kette.budgetzufuehrung
+        "50 % Überschuss für Investition Kuratoren", kette.budgetzufuehrung
     )
     for posten in kette.investitionen:
-        _posten_mit_drilldown(posten, einrueckung="− bereits getätigt: ")
-    _zwischensumme("Verfügbares Budget Kuratoren", kette.budget_verfuegbar)
+        _posten_mit_drilldown(posten, einrueckung="− getätigt: ")
+    _zwischensumme("Summe Investitionen getätigt", kette.investitionen_gesamt)
+    _zwischensumme("Investitionsbetrag übrig", kette.budget_verfuegbar)
 
     st.subheader("Abführung an die WEG")
-    _zwischensumme("50 % Überschuss an die WEG (netto, ÷ 1,19)", kette.weg_anteil_netto)
+    _zwischensumme("50 % Überschuss an WEG (netto)", kette.weg_anteil_netto)
     _zwischensumme(kette.nebenkosten.bezeichnung, kette.nebenkosten.betrag)
-    _zwischensumme("Überweisung an die WEG", kette.ueberweisung_weg)
+    _zwischensumme("abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale)
+    _zwischensumme("Überweisung auf Hauptkonto", kette.ueberweisung_weg)
 
     with st.expander("Warum der WEG-Anteil netto und der Kuratorenanteil brutto ist"):
         st.markdown(
@@ -537,6 +576,65 @@ def seite_pruefung(buchungen, kette, auszuege: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Mehrjahresvergleich
+# ---------------------------------------------------------------------------
+
+
+def seite_mehrjahresvergleich(kette) -> None:
+    st.header("Mehrjahresvergleich")
+    st.caption(
+        "Dieselbe Übersicht, die unten auf dem Bestandsblatt steht — 2022 bis 2025 "
+        "aus dem Blatt übernommen, der gewählte Zeitraum aus den Buchungen gerechnet."
+    )
+
+    reihe = mehrjahresvergleich(kette)
+    st.dataframe(
+        [
+            {
+                "Jahr": f"{j.jahr} ({kette.zeitraum.bezeichnung})" if j.belegt else str(j.jahr),
+                "Einnahmen": euro(j.einnahmen),
+                "Ausgaben": euro(j.ausgaben),
+                "Überschuss": euro(j.ueberschuss),
+                "50 % Zuführung": euro(j.zufuehrung),
+                "Investitionen": euro(j.investitionen),
+                "Budgetrest": euro(j.budgetrest),
+                "Grundlage": "aus Buchungen" if j.belegt else "aus Bestandsblatt",
+            }
+            for j in reihe
+        ],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.bar_chart(
+        {
+            "Einnahmen": {str(j.jahr): float(j.einnahmen) for j in reihe},
+            "Ausgaben": {str(j.jahr): float(abs(j.ausgaben)) for j in reihe},
+            "Überschuss": {str(j.jahr): float(j.ueberschuss) for j in reihe},
+        }
+    )
+
+    st.info(
+        "**Zwei Hinweise zum Lesen.** Die Jahre 2022 bis 2025 stehen im Bestandsblatt "
+        "in ganzen Euro. Daraus folgen Unstimmigkeiten von einem Euro — für 2023 "
+        "ergeben 79.813 − 51.490 genau 28.323, ausgewiesen sind 28.322. Das ist die "
+        "Rundung des Blattes, nicht ein Fehler in der Übernahme.\n\n"
+        "Zuführung und Investitionen nennt das Blatt nur für 2025. Für die übrigen "
+        "Jahre sind sie hier errechnet: Zuführung ist der halbe Überschuss, "
+        "Investitionen sind die Differenz zum Budgetrest. Dass die Herleitung "
+        "stimmt, zeigt 2025: Das Blatt weist dort −10.659 € aus, und genau dieser "
+        "Wert kommt aus 20.134 − 30.793 heraus. Damit wird erstmals sichtbar, wie "
+        "viel in den Jahren 2022 bis 2024 tatsächlich investiert wurde.",
+        icon="ℹ",
+    )
+    st.caption(
+        "Sobald die Exporte 2022–2024 vorliegen, lassen sich diese Zeilen aus den "
+        "Buchungen nachrechnen — und dann wird auch sichtbar, ob die Rundungen des "
+        "Blattes etwas verdecken."
+    )
+
+
+# ---------------------------------------------------------------------------
 # Kuratorenbudget
 # ---------------------------------------------------------------------------
 
@@ -623,17 +721,29 @@ def hauptprogramm() -> None:
         st.error(str(fehler))
         st.stop()
 
-    bericht, bilanz, pruefung, budget, parameter = st.tabs(
-        ["Quartalsbericht", "Raumbilanz", "Prüfung", "Kuratorenbudget", "Parameter"]
+    # Reihenfolge wie auf dem Bestandsblatt: erst die Kette, dann der
+    # Mehrjahresvergleich, dann das Budget. Raumbilanz und Pruefung sind
+    # Zusatzsichten und stehen dahinter.
+    bericht, mehrjahr, budget, bilanz, pruefung, parameter = st.tabs(
+        [
+            "Quartalsbericht",
+            "Mehrjahresvergleich",
+            "Kuratorenbudget",
+            "Raumbilanz",
+            "Prüfung",
+            "Parameter",
+        ]
     )
     with bericht:
         seite_quartalsbericht(kette)
+    with mehrjahr:
+        seite_mehrjahresvergleich(kette)
+    with budget:
+        seite_budget(kette)
     with bilanz:
         seite_raumbilanz(kette)
     with pruefung:
         seite_pruefung(buchungen, kette, auszuege)
-    with budget:
-        seite_budget(kette)
     with parameter:
         seite_parameter(kette)
 

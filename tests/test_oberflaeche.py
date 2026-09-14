@@ -33,22 +33,29 @@ def test_oberflaeche_laeuft_ohne_ausnahme(app):
     assert not app.exception, [str(a.value) for a in app.exception]
 
 
-def test_alle_fuenf_ansichten_sind_vorhanden(app):
-    beschriftungen = {beschriftung for tab in app.tabs for beschriftung in [tab.label]}
-    assert beschriftungen >= {
+def test_die_ansichten_stehen_in_der_reihenfolge_des_bestandsblattes(app):
+    """Erst die Kette, dann der Mehrjahresvergleich, dann das Budget -- so ist
+    auch das Blatt aufgebaut. Raumbilanz und Prüfung sind Zusatzsichten."""
+    assert [tab.label for tab in app.tabs][:6] == [
         "Quartalsbericht",
+        "Mehrjahresvergleich",
+        "Kuratorenbudget",
         "Raumbilanz",
         "Prüfung",
-        "Kuratorenbudget",
         "Parameter",
-    }
+    ]
 
 
-def test_kennzahlen_erscheinen_im_bericht(app):
-    beschriftungen = {kennzahl.label for kennzahl in app.metric}
-    assert "Einnahmen Vermietung" in beschriftungen
-    assert "Überschuss gesamt" in beschriftungen
-    assert "Überweisung an die WEG" in beschriftungen
+def test_die_fuenf_kennzahlen_der_kurzuebersicht_erscheinen(app):
+    """In derselben Wortwahl wie die Kurzübersicht des Bestandsblattes."""
+    beschriftungen = [kennzahl.label for kennzahl in app.metric]
+    assert beschriftungen[:5] == [
+        "Einnahmen Vermietung",
+        "Ausgaben gesamt",
+        "Überschuss gesamt",
+        "Budget Kuratoren",
+        "Überschuss & Nebenkosten an WEG",
+    ]
 
 
 # ---------------------------------------------------------------------------

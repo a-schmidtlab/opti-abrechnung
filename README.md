@@ -17,7 +17,7 @@ beschreibt, was das Tool tut und wie man es benutzt.
 2. [Datenschutz — bitte zuerst lesen](#datenschutz--bitte-zuerst-lesen)
 3. [Einrichtung](#einrichtung)
 4. [Datenquelle einrichten](#datenquelle-einrichten)
-5. [Bedienung der fünf Ansichten](#bedienung-der-fünf-ansichten)
+5. [Bedienung der sechs Ansichten](#bedienung-der-sechs-ansichten)
 6. [Kommandozeile](#kommandozeile)
 7. [Wie gerechnet wird](#wie-gerechnet-wird)
 8. [Aufbau des Codes](#aufbau-des-codes)
@@ -196,16 +196,53 @@ Lückenprüfung hinzu und ist optional.
 
 ---
 
-## Bedienung der fünf Ansichten
+## Bedienung der sechs Ansichten
 
 Oben in der Seitenleiste werden Datenquelle, Export, Jahr und Zeitraum gewählt.
 Als Zeitraum sind das ganze Jahr, einzelne Quartale und die beiden Halbjahre
 möglich.
 
+Die Ansichten stehen in der Reihenfolge, in der auch das Bestandsblatt aufgebaut
+ist: erst die Kette, dann der Mehrjahresvergleich, dann das Budget. Raumbilanz,
+Prüfung und Parameter sind Zusatzsichten und stehen dahinter.
+
+### Der Schalter „Beschriftungen wie im Bestandsbericht"
+
+Unten in der Seitenleiste, standardmäßig eingeschaltet. Er entscheidet, wie die
+Zeilen benannt werden:
+
+| eingeschaltet | ausgeschaltet |
+|---|---|
+| `Buha Klier+Ott` | `Buchhaltung Klier + Ott` |
+| `Material Verbrauch` | `Verbrauchskosten` |
+| `Bank` | `Bankgebühren` |
+| `Optionsraum 3 invest` | `Optionsraum 3 Investition` |
+
+Eingeschaltet ist er für den **Vergleich Zeile für Zeile** gedacht: So lässt sich
+die Auswertung neben das bisherige Blatt legen, ohne dass jemand Zeilen sucht.
+Ausgeschaltet erscheinen die geklärten Bezeichnungen, wie sie in einen Bericht an
+Spree VV gehören.
+
+Eine Ausnahme gibt es bewusst. Der Nebenkostenposten heißt immer nach dem
+tatsächlich abgedeckten Zeitraum — `Nebenkosten 1. Halbjahr 2026` — und nie
+`Nebenkosten Quartal`, wie das Blatt ihn nennt. Die Beschriftung dort ist falsch,
+weil der Posten den Halbjahresbetrag enthält, und für einen Bericht an Spree VV
+muss sie eindeutig sein.
+
 ### Quartalsbericht
 
-Die vollständige Rechenkette von den Einnahmen bis zur Überweisung an die WEG.
-Oben stehen vier Kennzahlen, darunter die Kette Zeile für Zeile.
+Die vollständige Rechenkette von den Einnahmen bis zur Überweisung an die WEG,
+in Reihenfolge und Wortwahl des Bestandsblattes.
+
+Oben stehen die fünf Kennzahlen der Kurzübersicht des Blattes: Einnahmen
+Vermietung, Ausgaben gesamt, Überschuss gesamt, Budget Kuratoren, Überschuss &
+Nebenkosten an WEG. Darunter die Kette Zeile für Zeile.
+
+Zu „Ausgaben gesamt": Das Blatt nennt diese Zeile „Ausgaben Betrieb &
+Erhaltung" und weist −36.226,91 € aus, hat aber Nebenkosten und Internet mit
+darin — obwohl beide in der ausführlichen Aufstellung derselben Seite eigene
+Zeilen bilden. Der Betrag wird übernommen, damit die Kurzübersichten vergleichbar
+sind; benannt wird er zutreffend.
 
 **Jede Zeile ist aufklappbar.** Ein Klick zeigt die Einzelbuchungen mit Datum,
 Betrag, Auftraggeber, Verwendungszweck, IBAN, MoneyMoney-Kategorie und der
@@ -219,6 +256,26 @@ Aufklappen stattdessen ihre Herkunftsangabe.
 Mit **⚑** markiert sind die Posten, die im Bericht ausdrücklich vorzulegen sind:
 alle Investitionen, weil die Abgrenzung zur Erhaltung nicht automatisierbar ist
 und prüfbar bleiben muss, und alles, was in `unklar` gelandet ist.
+
+### Mehrjahresvergleich
+
+Dieselbe Übersicht, die unten auf dem Bestandsblatt steht: Einnahmen, Ausgaben,
+Überschuss, 50-%-Zuführung, Investitionen und Budgetrest für 2022 bis 2025, dazu
+der gewählte Zeitraum aus den Buchungen gerechnet. Die Spalte **Grundlage** sagt
+bei jeder Zeile, woher sie kommt.
+
+Zwei Dinge sind beim Lesen zu wissen, und sie stehen auch in der Ansicht. Erstens
+sind die Jahre 2022 bis 2025 im Blatt in ganzen Euro angegeben; daraus folgen
+Unstimmigkeiten von einem Euro. Für 2023 ergeben 79.813 − 51.490 genau 28.323,
+ausgewiesen sind 28.322. Das ist die Rundung des Blattes, nicht ein Fehler in der
+Übernahme.
+
+Zweitens nennt das Blatt Zuführung und Investitionen nur für 2025. Für die
+übrigen Jahre sind sie hier errechnet: Die Zuführung ist der halbe Überschuss,
+die Investitionen sind die Differenz zum Budgetrest. Dass die Herleitung stimmt,
+zeigt 2025 — das Blatt weist dort −10.659 € aus, und genau dieser Wert kommt aus
+20.134 − 30.793 heraus. **Damit wird erstmals sichtbar, wie viel in den Jahren
+2022 bis 2024 tatsächlich investiert wurde:** 5.070 €, 2.561 € und 6.612,50 €.
 
 ### Raumbilanz
 
@@ -281,9 +338,61 @@ die Oberfläche zu starten:
 uv run opti-abrechnung PFAD/ZUM/EXPORT.csv --jahr 2025
 uv run opti-abrechnung PFAD/ZUM/EXPORT.csv --jahr 2026 --von-quartal 1 --bis-quartal 2
 uv run opti-abrechnung PFAD/ZUM/EXPORT.csv --jahr 2025 --raumbilanz
+uv run opti-abrechnung PFAD/ZUM/EXPORT.csv --jahr 2025 --geklaerte-beschriftung
 ```
 
-Die Ausgabe ist so gesetzt, dass sie sich neben den alten Bericht legen lässt.
+Die Ausgabe folgt in Reihenfolge und Wortwahl dem Bestandsblatt, sodass sie sich
+unmittelbar danebenlegen lässt. `--geklaerte-beschriftung` schaltet auf die
+geklärten Bezeichnungen um.
+
+So sieht das erste Halbjahr 2026 aus:
+
+```
+Umsätze Optionsräume · 1. Halbjahr 2026
+Zeitraum 01.01.2026 bis 30.06.2026 · alle Beträge brutto
+====================================================================
+
+Einnahmen
+  Bootshaus                                               8.622,32 €
+  Optionsraum 2                                          14.217,39 €
+  Optionsraum 3                                          21.920,93 €
+  Werkstatt                                               6.426,00 €
+Summe Einnahmen =========================================51.186,64 €
+
+Betrieb & Erhaltung
+  Koordination                                           −8.895,84 €
+  Reinigung                                              −4.224,50 €
+  Bootshaus Erhaltung                                    −1.859,43 €
+  Optionsraum 2 Erhaltung                                     0,00 €
+  Optionsraum 3 Erhaltung                                −1.266,66 €
+  Werkstatt Erhaltung                                    −2.241,91 €
+  Buha Klier+Ott                                            −78,19 €
+  Material Verbrauch                                     −2.386,92 €
+  Bank                                                      −27,00 €
+  unklar ⚑                                                 −376,95 €
+Summe Betrieb & Erhaltung ==============================−21.357,40 €
+
+  Nebenkosten 1. Halbjahr 2026                          −13.942,75 €
+  Internet Optionsräume                                    −926,76 €
+Ausgaben gesamt                                         −36.226,91 €
+Überschuss gesamt =======================================14.959,73 €
+
+Investitionen Kuratoren
+  50 % Überschuss für Investition Kuratoren               7.479,87 €
+    Optionsraum 3 invest                                   −174,90 €
+  Investitionen getätigt                                   −174,90 €
+Investitionsbetrag übrig =================================7.304,97 €
+
+Abführung an die WEG
+  50 % Überschuss an WEG (netto)                         −6.285,60 €
+  Nebenkosten 1. Halbjahr 2026                          −13.942,75 €
+  abz. Abschläge vorige Quartale                              0,00 €
+Überweisung auf Hauptkonto =============================−20.228,35 €
+```
+
+Jede Zahl des Bestandsblattes wird getroffen. Die einzige Abweichung ist
+gewollt: 7.304,97 € statt 7.305,87 €, weil das Blatt dort mit 174,00 € statt
+174,90 € rechnet.
 
 ---
 
@@ -305,7 +414,8 @@ Nach der bestehenden Systematik, hier am ersten Halbjahr 2026:
 | **= verfügbares Budget Kuratoren** | **7.304,97 €** |
 | 50 % Überschuss an WEG (netto, also ÷ 1,19) | −6.285,60 € |
 | + Nebenkosten des Zeitraums | −13.942,75 € |
-| **= Überweisung an WEG** | **−20.228,35 €** |
+| − Abschläge vorige Quartale | 0,00 € |
+| **= Überweisung auf Hauptkonto** | **−20.228,35 €** |
 
 ### Warum `Decimal` und keine Zwischenrundung
 
@@ -526,9 +636,14 @@ so gebaut, dass beide Antworten abbildbar sind.
 ## Stand und Fahrplan
 
 **Umgesetzt.** Kategoriesystematik und Abbildung, CSV-Import für beide Quellen mit
-Lückenprüfung, Rechenkette mit Regressionstest, Raumbilanz mit
-Gemeinkostenumlage, Budgetfortschreibung, Streamlit-Oberfläche mit Drilldown,
-Nextcloud-Anbindung, Kommandozeile, SQLite-Ablage als Modul.
+Lückenprüfung, Rechenkette mit Regressionstest, Mehrjahresvergleich, Raumbilanz
+mit Gemeinkostenumlage, Budgetfortschreibung, Streamlit-Oberfläche mit Drilldown
+und umschaltbaren Beschriftungen, Nextcloud-Anbindung, Kommandozeile,
+SQLite-Ablage als Modul.
+
+**Für das Treffen.** Reihenfolge, Wortwahl und Kennzahlen folgen dem
+Bestandsblatt, sodass sich beide Auswertungen nebeneinanderlegen lassen. Jede
+Zahl der beiden Referenz-PDFs wird getroffen.
 
 **Als Nächstes.** PDF-Export des Quartalsberichts, sodass er ohne Nacharbeit an
 Spree VV gehen kann. Anbindung der SQLite-Ablage an die Oberfläche, damit

@@ -23,6 +23,7 @@ from .kategorien import RAEUME, Bereich, Einnahmeart, Kostenart, Raum
 from .parameter import (
     ANTEIL_UEBERSCHUSS,
     BUDGETRESTE_VORJAHRE,
+    MEHRJAHRESBESTAND,
     UMSATZSTEUERSATZ,
     Jahresparameter,
     Zeitraum,
@@ -68,6 +69,17 @@ class Posten:
     herkunft: str = ""
     """Belegt bei Posten, die nicht aus Buchungen stammen, sondern aus Parametern."""
 
+    bestandsbezeichnung: str = ""
+    """Die Beschriftung, die dieselbe Zeile in der Bestandsauswertung traegt.
+
+    Das Bestandsblatt nennt Zeilen teils anders als ein Bericht, der an Spree VV
+    gehen soll -- `Buha Klier+Ott` gegen `Buchhaltung Klier + Ott`, `Bank` gegen
+    `Bankgebuehren`. Beide Beschriftungen mitzufuehren kostet nichts und macht
+    den entscheidenden Unterschied fuer die Vorstellung beim Treffen: Nur so
+    lassen sich die Auswertungen nebeneinanderlegen, ohne dass jemand Zeilen
+    sucht. Leer, wenn beide Beschriftungen uebereinstimmen.
+    """
+
     @property
     def aus_parameter(self) -> bool:
         return not self.buchungen and bool(self.herkunft)
@@ -76,15 +88,25 @@ class Posten:
     def anzahl_buchungen(self) -> int:
         return len(self.buchungen)
 
+    def beschriftung(self, *, wie_im_bestand: bool) -> str:
+        if wie_im_bestand and self.bestandsbezeichnung:
+            return self.bestandsbezeichnung
+        return self.bezeichnung
+
 
 def _posten_aus(
-    bezeichnung: str, buchungen: Sequence[Buchung], *, pruefbedarf: bool = False
+    bezeichnung: str,
+    buchungen: Sequence[Buchung],
+    *,
+    pruefbedarf: bool = False,
+    bestandsbezeichnung: str = "",
 ) -> Posten:
     return Posten(
         bezeichnung=bezeichnung,
         betrag=summe(b.betrag for b in buchungen),
         buchungen=tuple(buchungen),
         pruefbedarf=pruefbedarf,
+        bestandsbezeichnung=bestandsbezeichnung,
     )
 
 
@@ -102,19 +124,24 @@ def _nach_bereich(buchungen: Iterable[Buchung], bereich: Bereich) -> list[Buchun
     return [b for b in buchungen if b.zielkategorie and b.zielkategorie.bereich is bereich]
 
 
-REIHENFOLGE_BETRIEB: tuple[tuple[str, Bereich, object], ...] = (
-    ("Koordination", Bereich.GEMEINKOSTEN, Kostenart.KOORDINATION),
-    ("Reinigung", Bereich.GEMEINKOSTEN, Kostenart.REINIGUNG),
-    ("Bootshaus Erhaltung", Bereich.ERHALTUNG, Raum.BOOTSHAUS),
-    ("Optionsraum 2 Erhaltung", Bereich.ERHALTUNG, Raum.OPTIONSRAUM_2),
-    ("Optionsraum 3 Erhaltung", Bereich.ERHALTUNG, Raum.OPTIONSRAUM_3),
-    ("Werkstatt Erhaltung", Bereich.ERHALTUNG, Raum.WERKSTATT),
-    ("Buchhaltung Klier + Ott", Bereich.GEMEINKOSTEN, Kostenart.BUCHHALTUNG),
-    ("Verbrauchskosten", Bereich.GEMEINKOSTEN, Kostenart.VERBRAUCHSKOSTEN),
-    ("Bankgebuehren", Bereich.GEMEINKOSTEN, Kostenart.BANKGEBUEHREN),
-    ("unklar", Bereich.GEMEINKOSTEN, Kostenart.UNKLAR),
+REIHENFOLGE_BETRIEB: tuple[tuple[str, str, Bereich, object], ...] = (
+    ("Koordination", "", Bereich.GEMEINKOSTEN, Kostenart.KOORDINATION),
+    ("Reinigung", "", Bereich.GEMEINKOSTEN, Kostenart.REINIGUNG),
+    ("Bootshaus Erhaltung", "", Bereich.ERHALTUNG, Raum.BOOTSHAUS),
+    ("Optionsraum 2 Erhaltung", "", Bereich.ERHALTUNG, Raum.OPTIONSRAUM_2),
+    ("Optionsraum 3 Erhaltung", "", Bereich.ERHALTUNG, Raum.OPTIONSRAUM_3),
+    ("Werkstatt Erhaltung", "", Bereich.ERHALTUNG, Raum.WERKSTATT),
+    ("Buchhaltung Klier + Ott", "Buha Klier+Ott", Bereich.GEMEINKOSTEN, Kostenart.BUCHHALTUNG),
+    ("Verbrauchskosten", "Material Verbrauch", Bereich.GEMEINKOSTEN,
+     Kostenart.VERBRAUCHSKOSTEN),
+    ("Bankgebuehren", "Bank", Bereich.GEMEINKOSTEN, Kostenart.BANKGEBUEHREN),
+    ("unklar", "", Bereich.GEMEINKOSTEN, Kostenart.UNKLAR),
 )
-"""Reihenfolge der Kostenzeilen wie im Kategorien-Export der Bestandsauswertung.
+"""Kostenzeilen in der Reihenfolge des Kategorien-Exports der Bestandsauswertung.
+
+Je Zeile die geklaerte Beschriftung, die Beschriftung des Bestandsblattes (leer,
+wenn beide gleich sind), und die Merkmale, nach denen die Buchungen ausgewaehlt
+werden.
 
 Die Uebernahme der Reihenfolge ist nicht Kosmetik: Der Bericht soll neben die
 bisherige Auswertung gelegt werden koennen, ohne dass jemand Zeilen sucht.
@@ -164,14 +191,22 @@ class Rechenkette:
         return summe(p.betrag for p in self.betriebskosten)
 
     @property
+    def ausgaben_gesamt(self) -> Decimal:
+        """Alle Ausgaben der Kette: Betrieb & Erhaltung, Nebenkosten und Internet.
+
+        Diese Zusammenfassung steht in der Kurzuebersicht des Bestandsblattes als
+        'Ausgaben Betrieb & Erhaltung' mit -36.226,91 EUR fuer das erste Halbjahr
+        2026. Die Beschriftung dort ist irrefuehrend, weil Nebenkosten und
+        Internet mit enthalten sind, obwohl sie in der ausfuehrlichen Aufstellung
+        derselben Seite eigene Zeilen bilden. Der Betrag wird uebernommen, damit
+        die Kurzuebersichten vergleichbar sind; benannt wird er zutreffend.
+        """
+        return self.betriebskosten_gesamt + self.nebenkosten.betrag + self.internet.betrag
+
+    @property
     def ueberschuss_gesamt(self) -> Decimal:
         """Einnahmen abzueglich Betrieb & Erhaltung, Nebenkosten und Internet."""
-        return (
-            self.einnahmen_gesamt
-            + self.betriebskosten_gesamt
-            + self.nebenkosten.betrag
-            + self.internet.betrag
-        )
+        return self.einnahmen_gesamt + self.ausgaben_gesamt
 
     @property
     def halber_ueberschuss(self) -> Decimal:
@@ -202,9 +237,16 @@ class Rechenkette:
         return -(self.halber_ueberschuss / UMSATZSTEUERSATZ)
 
     @property
+    def abschlaege_vorige_quartale(self) -> Decimal:
+        """Bereits geleistete Nebenkostenabschlaege frueherer Quartale des Jahres."""
+        return self.parameter.abschlaege_vorige_quartale
+
+    @property
     def ueberweisung_weg(self) -> Decimal:
-        """Netto-Ueberschussanteil plus Nebenkostenpauschale des Zeitraums."""
-        return self.weg_anteil_netto + self.nebenkosten.betrag
+        """Netto-Ueberschussanteil, Nebenkosten des Zeitraums, abzueglich Abschlaege."""
+        return (
+            self.weg_anteil_netto + self.nebenkosten.betrag + self.abschlaege_vorige_quartale
+        )
 
     # --- Hinweise ----------------------------------------------------------
 
@@ -251,7 +293,7 @@ def rechenkette(
             einnahmen_detail[(raum, art)] = _posten_aus(f"{raum.value} {art.value}", geteilt)
 
     betriebskosten: list[Posten] = []
-    for bezeichnung, bereich, merkmal in REIHENFOLGE_BETRIEB:
+    for bezeichnung, bestandsbezeichnung, bereich, merkmal in REIHENFOLGE_BETRIEB:
         if bereich is Bereich.ERHALTUNG:
             zeilen = [
                 b
@@ -265,7 +307,12 @@ def rechenkette(
                 if b.zielkategorie.kostenart is merkmal
             ]
         betriebskosten.append(
-            _posten_aus(bezeichnung, zeilen, pruefbedarf=merkmal is Kostenart.UNKLAR)
+            _posten_aus(
+                bezeichnung,
+                zeilen,
+                pruefbedarf=merkmal is Kostenart.UNKLAR,
+                bestandsbezeichnung=bestandsbezeichnung,
+            )
         )
 
     investitionen = [
@@ -277,6 +324,7 @@ def rechenkette(
                 if b.zielkategorie.raum is raum
             ],
             pruefbedarf=True,
+            bestandsbezeichnung=f"{raum.value} invest",
         )
         for raum in RAEUME
     ]
@@ -482,6 +530,79 @@ def budgetfortschreibung(laufendes_jahr: Budgetjahr | None = None) -> list[Budge
                 investitionen=laufendes_jahr.investitionen,
                 rest=laufendes_jahr.rest,
                 kumuliert=laufend,
+                belegt=True,
+            )
+        )
+    return reihe
+
+
+# ---------------------------------------------------------------------------
+# Mehrjahresvergleich (Abschnitt 6)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Vergleichsjahr:
+    """Eine Zeile des Mehrjahresvergleichs."""
+
+    jahr: int
+    einnahmen: Decimal
+    ausgaben: Decimal
+    ueberschuss: Decimal
+    zufuehrung: Decimal
+    investitionen: Decimal
+    budgetrest: Decimal
+    belegt: bool
+    """Wahr, wenn die Zeile aus Buchungen gerechnet ist, falsch bei Uebernahme
+    aus der Bestandsauswertung."""
+
+    hergeleitet: tuple[str, ...] = ()
+    """Namen der Felder, die nicht im Bestandsblatt stehen, sondern errechnet sind."""
+
+
+def mehrjahresvergleich(kette: Rechenkette | None = None) -> list[Vergleichsjahr]:
+    """Stellt die Jahre 2022 bis heute nebeneinander.
+
+    Die abgeschlossenen Jahre stammen aus der Mehrjahresuebersicht des
+    EUER-Blattes, weil die Exporte dieser Jahre noch fehlen (Abschnitt 10). Dort
+    ausgewiesen sind Einnahmen, Ausgaben, Ueberschuss und Budgetrest.
+
+    Die Budgetzufuehrung ist der halbe Ueberschuss, und die getaetigten
+    Investitionen ergeben sich als Differenz zwischen Zufuehrung und Rest. Diese
+    Herleitung ist nicht geraten: Fuer 2025 weist das Blatt die Investitionen mit
+    -10.659 EUR eigens aus, und genau dieser Wert kommt aus 20.134 - 30.793
+    heraus. Damit sind auch die Werte fuer 2022 bis 2024 belastbar, die das Blatt
+    nicht nennt -- und es wird erstmals sichtbar, wie viel in diesen Jahren
+    tatsaechlich investiert wurde.
+    """
+    reihe: list[Vergleichsjahr] = []
+    for jahr in sorted(MEHRJAHRESBESTAND):
+        bestand = MEHRJAHRESBESTAND[jahr]
+        zufuehrung = bestand.ueberschuss * ANTEIL_UEBERSCHUSS
+        reihe.append(
+            Vergleichsjahr(
+                jahr=jahr,
+                einnahmen=bestand.einnahmen,
+                ausgaben=bestand.ausgaben,
+                ueberschuss=bestand.ueberschuss,
+                zufuehrung=zufuehrung,
+                investitionen=bestand.budgetrest - zufuehrung,
+                budgetrest=bestand.budgetrest,
+                belegt=False,
+                hergeleitet=("zufuehrung", "investitionen"),
+            )
+        )
+
+    if kette is not None:
+        reihe.append(
+            Vergleichsjahr(
+                jahr=kette.zeitraum.jahr,
+                einnahmen=auf_cent(kette.einnahmen_gesamt),
+                ausgaben=auf_cent(kette.ausgaben_gesamt),
+                ueberschuss=auf_cent(kette.ueberschuss_gesamt),
+                zufuehrung=auf_cent(kette.budgetzufuehrung),
+                investitionen=auf_cent(kette.investitionen_gesamt),
+                budgetrest=auf_cent(kette.budget_verfuegbar),
                 belegt=True,
             )
         )

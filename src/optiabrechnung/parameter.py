@@ -101,6 +101,15 @@ class Jahresparameter:
 
     internet_herkunft: str
 
+    abschlaege_vorige_quartale: Decimal = Decimal(0)
+    """Bereits geleistete Nebenkostenabschlaege frueherer Quartale des Jahres.
+
+    Die Bestandsauswertung fuehrt diese Zeile ("abz. Abschlaege vorige Quartale")
+    mit 0,00 EUR. Sie wird mitgefuehrt, damit der Bericht Zeile fuer Zeile neben
+    das Bestandsblatt gelegt werden kann und damit ein Quartalsbericht mitten im
+    Jahr nicht die volle Jahrespauschale doppelt abfuehrt.
+    """
+
     gesichert: bool = True
     """Falsch, wenn ein Wert hergeleitet und nicht belegt ist. Solche Werte
     werden in der Auswertung als vorlaeufig gekennzeichnet."""
@@ -180,16 +189,47 @@ def parameter_fuer(jahr: int) -> Jahresparameter:
 # Kuratorenbudget der Vorjahre
 # ---------------------------------------------------------------------------
 
-BUDGETRESTE_VORJAHRE: dict[int, Decimal] = {
-    2022: Decimal("12260"),
-    2023: Decimal("11600"),
-    2024: Decimal("19213"),
-    2025: Decimal("20134"),
+@dataclass(frozen=True, slots=True)
+class Bestandsjahr:
+    """Die Jahreswerte eines abgeschlossenen Jahres aus der EUER-Uebersicht.
+
+    Alle Betraege sind dort in ganzen Euro angegeben. Daraus folgen kleine
+    Unstimmigkeiten von einem Euro -- fuer 2023 etwa ergeben 79.813 - 51.490
+    genau 28.323, ausgewiesen sind 28.322. Das ist die Rundung des Blattes und
+    kein Fehler in der Uebernahme; die Werte werden unveraendert uebernommen,
+    weil das Blatt die Vergleichsgrundlage ist.
+    """
+
+    jahr: int
+    einnahmen: Decimal
+    ausgaben: Decimal
+    ueberschuss: Decimal
+    budgetrest: Decimal
+
+
+MEHRJAHRESBESTAND: dict[int, Bestandsjahr] = {
+    2022: Bestandsjahr(2022, Decimal("83261"), Decimal("-48601"), Decimal("34660"),
+                       Decimal("12260")),
+    2023: Bestandsjahr(2023, Decimal("79813"), Decimal("-51490"), Decimal("28322"),
+                       Decimal("11600")),
+    2024: Bestandsjahr(2024, Decimal("114110"), Decimal("-62460"), Decimal("51651"),
+                       Decimal("19213")),
+    2025: Bestandsjahr(2025, Decimal("136461"), Decimal("-74875"), Decimal("61586"),
+                       Decimal("20134")),
 }
-"""Ungenutztes Kuratorenbudget der abgeschlossenen Jahre, aus der EUER-Uebersicht.
+"""Die Mehrjahresuebersicht 2022-2025, wie sie auf dem EUER-Blatt steht.
+
+Uebernommen, damit der Mehrjahresvergleich schon jetzt gezeigt werden kann,
+obwohl die Exporte dieser Jahre noch fehlen (Abschnitt 10 des Plans). Sobald sie
+vorliegen, lassen sich die Werte aus den Buchungen nachrechnen und ersetzen --
+und dann wird auch sichtbar, ob die Rundungen des Blattes etwas verdecken.
+"""
+
+BUDGETRESTE_VORJAHRE: dict[int, Decimal] = {
+    jahr: bestand.budgetrest for jahr, bestand in MEHRJAHRESBESTAND.items()
+}
+"""Ungenutztes Kuratorenbudget der abgeschlossenen Jahre.
 
 Zusammen mit dem laufenden Jahr ergibt das die 70.512 EUR, die als ungenutztes
-Budget 2022-2026 ausgewiesen sind (Abschnitt 2.1). Diese Werte stammen aus der
-Bestandsauswertung und sind in ganzen Euro angegeben; sobald die Exporte
-2022-2024 vorliegen, lassen sie sich aus den Buchungen nachrechnen und ersetzen.
+Budget 2022-2026 ausgewiesen sind (Abschnitt 2.1).
 """

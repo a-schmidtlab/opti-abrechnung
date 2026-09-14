@@ -17,7 +17,12 @@ from pathlib import Path
 
 import pytest
 
-from optiabrechnung.auswertung import auf_cent, raumbilanz, rechenkette
+from optiabrechnung.auswertung import (
+    auf_cent,
+    mehrjahresvergleich,
+    raumbilanz,
+    rechenkette,
+)
 from optiabrechnung.einlesen import einlesen_moneymoney
 from optiabrechnung.kategorien import RAEUME, Raum
 from optiabrechnung.parameter import Zeitraum
@@ -212,6 +217,114 @@ def test_verfuegbares_budget_weicht_um_90_cent_vom_bestand_ab(kette):
 
     assert auf_cent(kette.budget_verfuegbar) == rechnerisch_richtig
     assert ausgewiesen_im_bestand - rechnerisch_richtig == Decimal("0.90")
+
+
+# ---------------------------------------------------------------------------
+# Vergleichbarkeit mit dem Bestandsblatt
+# ---------------------------------------------------------------------------
+
+
+def test_ausgaben_gesamt_trifft_die_kurzuebersicht_des_blattes(kette):
+    """Das Blatt fasst in der Kurzuebersicht -36.226,91 EUR zusammen.
+
+    Enthalten sind dort Betrieb & Erhaltung, Nebenkosten und Internet, obwohl die
+    Zeile nur „Ausgaben Betrieb & Erhaltung“ heisst.
+    """
+    assert auf_cent(kette.ausgaben_gesamt) == Decimal("-36226.91")
+
+
+def test_abschlaege_vorige_quartale_stehen_in_der_kette(kette):
+    """Das Blatt fuehrt diese Zeile mit 0,00 EUR. Sie wird mitgefuehrt, damit der
+    Bericht Zeile fuer Zeile danebengelegt werden kann."""
+    assert kette.abschlaege_vorige_quartale == Decimal("0")
+
+
+@pytest.mark.parametrize(
+    ("geklaert", "im_bestand"),
+    [
+        ("Buchhaltung Klier + Ott", "Buha Klier+Ott"),
+        ("Verbrauchskosten", "Material Verbrauch"),
+        ("Bankgebuehren", "Bank"),
+    ],
+)
+def test_beide_beschriftungen_sind_verfuegbar(kette, geklaert, im_bestand):
+    """Fuer die Vorstellung beim Treffen zaehlt die Wortwahl des Blattes, fuer
+    einen Bericht an Spree VV die geklaerte."""
+    posten = {p.bezeichnung: p for p in kette.betriebskosten}[geklaert]
+    assert posten.beschriftung(wie_im_bestand=True) == im_bestand
+    assert posten.beschriftung(wie_im_bestand=False) == geklaert
+
+
+def test_zeilen_ohne_abweichende_beschriftung_bleiben_gleich(kette):
+    posten = {p.bezeichnung: p for p in kette.betriebskosten}["Koordination"]
+    assert posten.beschriftung(wie_im_bestand=True) == "Koordination"
+    assert posten.beschriftung(wie_im_bestand=False) == "Koordination"
+
+
+def test_reihenfolge_der_kostenzeilen_wie_im_kategorien_export(kette):
+    """Damit beim Nebeneinanderlegen niemand Zeilen suchen muss."""
+    assert [p.beschriftung(wie_im_bestand=True) for p in kette.betriebskosten] == [
+        "Koordination",
+        "Reinigung",
+        "Bootshaus Erhaltung",
+        "Optionsraum 2 Erhaltung",
+        "Optionsraum 3 Erhaltung",
+        "Werkstatt Erhaltung",
+        "Buha Klier+Ott",
+        "Material Verbrauch",
+        "Bank",
+        "unklar",
+    ]
+
+
+def test_reihenfolge_der_einnahmen_wie_im_kategorien_export(kette):
+    assert [p.bezeichnung for p in kette.einnahmen] == [
+        "Bootshaus",
+        "Optionsraum 2",
+        "Optionsraum 3",
+        "Werkstatt",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Mehrjahresvergleich
+# ---------------------------------------------------------------------------
+
+
+def test_mehrjahresvergleich_umfasst_2022_bis_zum_laufenden_zeitraum(kette):
+    reihe = mehrjahresvergleich(kette)
+    assert [j.jahr for j in reihe] == [2022, 2023, 2024, 2025, 2026]
+    assert not reihe[0].belegt
+    assert reihe[-1].belegt
+
+
+def test_hergeleitete_investitionen_treffen_den_ausgewiesenen_wert_fuer_2025():
+    """Das Blatt weist die Investitionen 2025 mit -10.659 EUR eigens aus.
+
+    Genau dieser Wert kommt aus Budgetrest minus halbem Ueberschuss heraus,
+    also 20.134 - 30.793. Damit ist die Herleitung belegt und die Werte fuer
+    2022 bis 2024, die das Blatt nicht nennt, sind belastbar.
+    """
+    jahr_2025 = {j.jahr: j for j in mehrjahresvergleich()}[2025]
+    assert jahr_2025.zufuehrung == Decimal("30793")
+    assert jahr_2025.investitionen == Decimal("-10659")
+
+
+def test_budgetreste_ergeben_die_ausgewiesenen_70512_euro(kette):
+    """Die Zahl ist politisch relevant genug, dass ihre Herleitung stimmen muss."""
+    reihe = mehrjahresvergleich(kette)
+    vorjahre = sum(j.budgetrest for j in reihe if not j.belegt)
+    assert vorjahre == Decimal("63207")
+    laufend = reihe[-1].budgetrest
+    assert (vorjahre + laufend).quantize(Decimal("1")) == Decimal("70512")
+
+
+def test_bestandsjahre_sind_als_unbelegt_gekennzeichnet():
+    """Solange die Exporte 2022-2024 fehlen, darf niemand die Zeilen fuer
+    nachgerechnet halten."""
+    for jahr in mehrjahresvergleich():
+        assert not jahr.belegt
+        assert "investitionen" in jahr.hergeleitet
 
 
 # ---------------------------------------------------------------------------

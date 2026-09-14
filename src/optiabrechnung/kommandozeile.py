@@ -40,6 +40,14 @@ def _argumente(argv: list[str] | None = None) -> argparse.Namespace:
     zerleger.add_argument(
         "--raumbilanz", action="store_true", help="Raumbilanz zusaetzlich ausgeben"
     )
+    zerleger.add_argument(
+        "--geklaerte-beschriftung",
+        action="store_true",
+        help=(
+            "Geklaerte Bezeichnungen verwenden statt der Wortwahl des "
+            "Bestandsblattes (Buchhaltung Klier + Ott statt Buha Klier+Ott)"
+        ),
+    )
     return zerleger.parse_args(argv)
 
 
@@ -57,41 +65,56 @@ def hauptprogramm(argv: list[str] | None = None) -> int:
         print(f"Fehler: {fehler}", file=sys.stderr)
         return 1
 
+    # Beschriftung und Reihenfolge folgen dem Bestandsblatt, damit sich die
+    # Ausgabe unmittelbar danebenlegen laesst.
+    wie_im_bestand = not argumente.geklaerte_beschriftung
+
     print()
-    print(f"Auswertung Optionsräume · {zeitraum.bezeichnung}")
+    print(f"Umsätze Optionsräume · {zeitraum.bezeichnung}")
+    print(
+        f"Zeitraum {zeitraum.beginn.strftime('%d.%m.%Y')} bis "
+        f"{zeitraum.ende.strftime('%d.%m.%Y')} · alle Beträge brutto"
+    )
     print(f"Quelle: {argumente.export.name}")
     print("=" * BREITE)
 
-    print("\nEinnahmen Vermietung")
+    print("\nEinnahmen")
     for posten in kette.einnahmen:
-        print(_zeile(f"  {posten.bezeichnung}", posten.betrag))
+        print(_zeile(f"  {posten.beschriftung(wie_im_bestand=wie_im_bestand)}", posten.betrag))
     print(_zeile("Summe Einnahmen", kette.einnahmen_gesamt, hervorgehoben=True))
 
     print("\nBetrieb & Erhaltung")
     for posten in kette.betriebskosten:
         markierung = " ⚑" if posten.pruefbedarf and posten.betrag else ""
-        print(_zeile(f"  {posten.bezeichnung}{markierung}", posten.betrag))
+        beschriftung = posten.beschriftung(wie_im_bestand=wie_im_bestand)
+        print(_zeile(f"  {beschriftung}{markierung}", posten.betrag))
     print(_zeile("Summe Betrieb & Erhaltung", kette.betriebskosten_gesamt, hervorgehoben=True))
 
     print()
     print(_zeile(f"  {kette.nebenkosten.bezeichnung}", kette.nebenkosten.betrag))
     print(_zeile(f"  {kette.internet.bezeichnung}", kette.internet.betrag))
+    print(_zeile("Ausgaben gesamt", kette.ausgaben_gesamt))
     print(_zeile("Überschuss gesamt", kette.ueberschuss_gesamt, hervorgehoben=True))
 
-    print("\nInvestitionsbudget Kuratoren")
-    print(_zeile("  50 % Überschuss (brutto)", kette.budgetzufuehrung))
-    print(_zeile("  bereits getätigte Investitionen", kette.investitionen_gesamt))
-    print(_zeile("Verfügbares Budget Kuratoren", kette.budget_verfuegbar, hervorgehoben=True))
+    print("\nInvestitionen Kuratoren")
+    print(_zeile("  50 % Überschuss für Investition Kuratoren", kette.budgetzufuehrung))
+    for posten in kette.investitionen:
+        beschriftung = posten.beschriftung(wie_im_bestand=wie_im_bestand)
+        print(_zeile(f"    {beschriftung}", posten.betrag))
+    print(_zeile("  Investitionen getätigt", kette.investitionen_gesamt))
+    print(_zeile("Investitionsbetrag übrig", kette.budget_verfuegbar, hervorgehoben=True))
 
     print("\nAbführung an die WEG")
-    print(_zeile("  50 % Überschuss netto (÷ 1,19)", kette.weg_anteil_netto))
+    print(_zeile("  50 % Überschuss an WEG (netto)", kette.weg_anteil_netto))
     print(_zeile(f"  {kette.nebenkosten.bezeichnung}", kette.nebenkosten.betrag))
-    print(_zeile("Überweisung an die WEG", kette.ueberweisung_weg, hervorgehoben=True))
+    print(_zeile("  abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale))
+    print(_zeile("Überweisung auf Hauptkonto", kette.ueberweisung_weg, hervorgehoben=True))
 
     if kette.pruefposten:
         print("\n⚑ Vorzulegende Posten")
         for posten in kette.pruefposten:
-            print(_zeile(f"  {posten.bezeichnung}", posten.betrag))
+            beschriftung = posten.beschriftung(wie_im_bestand=wie_im_bestand)
+            print(_zeile(f"  {beschriftung}", posten.betrag))
 
     if kette.unzugeordnet:
         print(
