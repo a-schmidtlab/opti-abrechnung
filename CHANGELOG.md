@@ -9,6 +9,33 @@ Commits: <https://github.com/a-schmidtlab/opti-abrechnung/commits/main>
 
 ---
 
+## [0.1.1] — 2026-09-15
+
+Behebt die Fehler aus Tristans erstem Durchlauf auf einem fremden Rechner.
+
+### Behoben
+
+- Die Prüfungsansicht brach mit `StreamlitAPIException` ab, sobald Kontoauszug
+  und Export buchungsweise übereinstimmten: Das Hakenzeichen U+2713 gilt
+  Streamlit nicht als Emoji. Die Zeichen der Hinweisfelder stehen jetzt zentral
+  in `darstellung.py`, und ein Test hält sie gegen Streamlits eigene Prüfung.
+- Das Tool zeigte nach dem Klonen sofort einen vollständigen Bericht — gerechnet
+  aus dem anonymisierten Regressionssatz unter `tests/`, der als Datenquelle
+  gefunden wurde. Dieses Verzeichnis wird jetzt übergangen; ohne echte Daten
+  erscheint ein Hinweis statt einer Auswertung.
+- `use_container_width` durch `width="stretch"` ersetzt. Streamlit hat den
+  Parameter zum 31.12.2025 abgekündigt; er wäre beim nächsten Update entfallen.
+
+### Geändert
+
+- Die Auswahl der Exporte ist nach Änderungsdatum sortiert, der neueste zuerst.
+  Alphabetisch stand je nach Ordnername ein alter Export aus einem Unterordner
+  vorn. Darunter steht jetzt, wie viele Buchungen die Datei enthält und welchen
+  Zeitraum sie abdeckt.
+- Einrichtungsanleitung im README: Klonen über HTTPS (ohne SSH-Schlüssel),
+  `uv`-Binärdatei passend zur Architektur (Apple-Chip statt Intel) und der
+  dauerhafte Eintrag von `~/.local/bin` in die Startdatei der Shell.
+
 ## [0.1.0] — 2026-09-14
 
 Erster lauffähiger Stand: Rechenkette, Oberfläche, Nextcloud-Anbindung und

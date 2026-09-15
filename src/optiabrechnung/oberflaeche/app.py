@@ -46,7 +46,11 @@ from optiabrechnung.nextcloud import (
     freigabe_lesen,
 )
 from optiabrechnung.oberflaeche.darstellung import (
+    SYMBOL_HINWEIS,
+    SYMBOL_STIMMIG,
+    SYMBOL_WARNUNG,
     buchungstabelle,
+    datum,
     euro,
     prozent,
 )
@@ -89,6 +93,36 @@ def _art_der_datei(pfad: Path) -> str | None:
     return None
 
 
+UEBERGANGENE_ORDNER = frozenset({".git", ".venv", "__pycache__", "tests"})
+"""Verzeichnisse, die bei der Suche nach Exporten nicht betreten werden.
+
+`tests` steht ausdruecklich dabei. Dort liegt der anonymisierte Regressionssatz,
+und der sieht einem echten Export zum Verwechseln aehnlich. Wird das Tool im
+Projektverzeichnis gestartet -- die Voreinstellung nach dem Klonen --, waere er
+die einzige gefundene Datei, und es erschiene sofort ein vollstaendiger Bericht
+aus Testzahlen. Ein Bericht, dem man nicht ansieht, dass er nichts bedeutet, ist
+schlimmer als gar keiner.
+"""
+
+
+def _uebergangen(pfad: Path, wurzel: Path) -> bool:
+    return any(teil in UEBERGANGENE_ORDNER for teil in pfad.relative_to(wurzel).parts[:-1])
+
+
+def _reihenfolge(pfad: Path) -> tuple[float, str]:
+    """Sortiert den zuletzt geaenderten Export nach vorn.
+
+    Die Oberflaeche stellt den ersten Treffer voreingestellt dar. Alphabetisch
+    waere das eine Frage des Ordnernamens und damit Zufall -- ein Ordner
+    `Rechnungen/2025` stuende vor dem aktuellen Stand. Nach Aenderungsdatum ist
+    es in aller Regel der Export, den man gerade geholt hat.
+    """
+    try:
+        return (-pfad.stat().st_mtime, str(pfad))
+    except OSError:
+        return (0.0, str(pfad))
+
+
 @st.cache_data(show_spinner=False)
 def _quellen_finden(ordner: str) -> dict[str, list[str]]:
     """Durchsucht ein Verzeichnis nach MoneyMoney-Exporten und DKB-Auszuegen."""
@@ -96,7 +130,9 @@ def _quellen_finden(ordner: str) -> dict[str, list[str]]:
     gefunden: dict[str, list[str]] = {MONEYMONEY: [], DKB: []}
     if not wurzel.is_dir():
         return gefunden
-    for pfad in sorted(wurzel.rglob("*.csv")):
+    for pfad in sorted(wurzel.rglob("*.csv"), key=_reihenfolge):
+        if _uebergangen(pfad, wurzel):
+            continue
         art = _art_der_datei(pfad)
         if art:
             gefunden[art].append(str(pfad))
@@ -156,6 +192,7 @@ def _datenquelle_waehlen(einstellungen: Einstellungen) -> Path | None:
             "Verzeichnis",
             value=einstellungen.lokaler_ordner or str(PROJEKTWURZEL),
             help="Wird einschließlich Unterverzeichnissen durchsucht.",
+            key="verzeichnis",
         )
         if ordner != einstellungen.lokaler_ordner or quelle != einstellungen.quelle:
             einstellungen.quelle = quelle
@@ -185,7 +222,7 @@ def _datenquelle_waehlen(einstellungen: Einstellungen) -> Path | None:
         ),
     )
 
-    if st.sidebar.button("Dateien abrufen", type="primary", use_container_width=True):
+    if st.sidebar.button("Dateien abrufen", type="primary", width="stretch"):
         try:
             ordner, anzahl = _nextcloud_abrufen(link, passwort)
         except NextcloudFehler as fehler:
@@ -209,7 +246,7 @@ def _datenquelle_waehlen(einstellungen: Einstellungen) -> Path | None:
     st.sidebar.info(
         "Link eingeben und „Dateien abrufen“ wählen. Beim ersten Mal kann das einen "
         "Moment dauern.",
-        icon="ℹ",
+        icon=SYMBOL_HINWEIS,
     )
     return None
 
@@ -229,7 +266,7 @@ def _seitenleiste():
         st.info(
             "Bitte links eine Datenquelle wählen. Benötigt wird der MoneyMoney-Export "
             "mit Kategorien; der DKB-Kontoauszug kommt für die Lückenprüfung hinzu.",
-            icon="ℹ",
+            icon=SYMBOL_HINWEIS,
         )
         st.stop()
 
@@ -237,8 +274,13 @@ def _seitenleiste():
     quellen = _quellen_finden(str(ordner))
     if not quellen[MONEYMONEY]:
         st.sidebar.error(
-            "Kein MoneyMoney-Export gefunden. Erwartet wird eine CSV-Datei mit der "
-            "Kopfzeile `Datum;Wertstellung;Kategorie;…`."
+            "Kein MoneyMoney-Export in diesem Verzeichnis gefunden. Erwartet wird eine "
+            "CSV-Datei mit der Kopfzeile `Datum;Wertstellung;Kategorie;…`."
+        )
+        st.info(
+            "In diesem Verzeichnis liegen keine Daten. Bitte links den Ordner mit dem "
+            "MoneyMoney-Export angeben oder die Nextcloud-Freigabe abrufen.",
+            icon=SYMBOL_HINWEIS,
         )
         st.stop()
 
@@ -254,6 +296,16 @@ def _seitenleiste():
     except EinleseFehler as fehler:
         st.sidebar.error(f"Der Export ließ sich nicht einlesen. {fehler}")
         st.stop()
+
+    # Welcher Zeitraum tatsaechlich im Export steht. Ohne diese Zeile ist nicht
+    # zu sehen, ob die gewaehlte Datei den aktuellen Stand enthaelt oder einen
+    # alten Export aus einem Unterordner.
+    if buchungen:
+        st.sidebar.caption(
+            f"{len(buchungen)} Buchungen, "
+            f"{datum(min(b.datum for b in buchungen))} bis "
+            f"{datum(max(b.datum for b in buchungen))}"
+        )
 
     jahre = sorted({b.jahr for b in buchungen})
     jahr = st.sidebar.selectbox("Jahr", jahre, index=len(jahre) - 1)
@@ -316,12 +368,12 @@ def _posten_mit_drilldown(posten, *, einrueckung: str = "") -> None:
         with spalte_bezeichnung.expander(f"{beschriftung}  ·  {posten.anzahl_buchungen} Buchungen"):
             st.dataframe(
                 buchungstabelle(posten.buchungen),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
     elif posten.aus_parameter:
         with spalte_bezeichnung.expander(f"{beschriftung}  ·  aus Parametern"):
-            st.info(posten.herkunft, icon="ℹ")
+            st.info(posten.herkunft, icon=SYMBOL_HINWEIS)
     else:
         spalte_bezeichnung.write(f"{beschriftung}  ·  keine Buchungen")
 
@@ -463,7 +515,7 @@ def seite_raumbilanz(kette) -> None:
             }
             for b in bilanzen
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -477,7 +529,7 @@ def seite_raumbilanz(kette) -> None:
         "ausschließlich aus den direkt zugeordneten Erhaltungskosten. Das ist kein "
         "Fehler, sondern die logische Folge des Schlüssels — die Umlage selbst sagt "
         "nichts über die tatsächliche Kostenverursachung aus.",
-        icon="ℹ",
+        icon=SYMBOL_HINWEIS,
     )
 
     st.subheader("Dauermiete gegen Einzelbuchung")
@@ -511,14 +563,17 @@ def seite_pruefung(buchungen, kette, auszuege: list[str]) -> None:
         for posten in kette.pruefposten:
             _posten_mit_drilldown(posten)
     else:
-        st.success("Keine Investitionen und keine unklaren Buchungen im Zeitraum.", icon="✓")
+        st.success(
+            "Keine Investitionen und keine unklaren Buchungen im Zeitraum.",
+            icon=SYMBOL_STIMMIG,
+        )
 
     st.subheader("Lückenprüfung gegen den Kontoauszug")
     if not auszuege:
         st.info(
             "Kein DKB-Kontoauszug in der gewählten Datenquelle gefunden. Für die "
             "Lückenprüfung wird eine Umsatzliste der DKB im CSV-Format benötigt.",
-            icon="ℹ",
+            icon=SYMBOL_HINWEIS,
         )
         return
 
@@ -552,7 +607,7 @@ def seite_pruefung(buchungen, kette, auszuege: list[str]) -> None:
         st.success(
             "Beide Quellen stimmen buchungsweise überein. Es fehlt keine Buchung "
             "in der Auswertung.",
-            icon="✓",
+            icon=SYMBOL_STIMMIG,
         )
         return
 
@@ -560,21 +615,21 @@ def seite_pruefung(buchungen, kette, auszuege: list[str]) -> None:
         st.warning(
             "Diese Buchungen stehen im Kontoauszug, aber nicht im MoneyMoney-Export. "
             "Sie sind damit in keiner Auswertung enthalten.",
-            icon="⚠",
+            icon=SYMBOL_WARNUNG,
         )
         st.dataframe(
-            buchungstabelle(ergebnis.nur_in_dkb), use_container_width=True, hide_index=True
+            buchungstabelle(ergebnis.nur_in_dkb), width="stretch", hide_index=True
         )
 
     if ergebnis.nur_in_moneymoney:
         st.warning(
             "Diese Buchungen stehen nur in MoneyMoney — typischerweise eine "
             "Zeitraumgrenze des Exports.",
-            icon="⚠",
+            icon=SYMBOL_WARNUNG,
         )
         st.dataframe(
             buchungstabelle(ergebnis.nur_in_moneymoney),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -606,7 +661,7 @@ def seite_mehrjahresvergleich(kette) -> None:
             }
             for j in reihe
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -629,7 +684,7 @@ def seite_mehrjahresvergleich(kette) -> None:
         "stimmt, zeigt 2025: Das Blatt weist dort −10.659 € aus, und genau dieser "
         "Wert kommt aus 20.134 − 30.793 heraus. Damit wird erstmals sichtbar, wie "
         "viel in den Jahren 2022 bis 2024 tatsächlich investiert wurde.",
-        icon="ℹ",
+        icon=SYMBOL_HINWEIS,
     )
     st.caption(
         "Sobald die Exporte 2022–2024 vorliegen, lassen sich diese Zeilen aus den "
@@ -663,7 +718,7 @@ def seite_budget(kette) -> None:
             }
             for j in reihe
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -692,7 +747,7 @@ def seite_parameter(kette) -> None:
         st.warning(
             f"Für {p.jahr} ist mindestens ein Wert hergeleitet und nicht belegt. "
             "Die Auswertung ist insoweit vorläufig.",
-            icon="⚠",
+            icon=SYMBOL_WARNUNG,
         )
 
     st.metric("Nebenkosten, Jahresbetrag", euro(p.nebenkosten_jahresbetrag))

@@ -19,6 +19,19 @@ from ..einlesen import Buchung
 MINUS = "\u2212"
 """Typografisches Minus. Der Bindestrich ist in Zahlenkolonnen zu schmal."""
 
+SYMBOL_HINWEIS = "\u2139\ufe0f"
+SYMBOL_WARNUNG = "\u26a0\ufe0f"
+SYMBOL_STIMMIG = "\u2705"
+"""Zeichen fuer die `icon`-Angabe der Streamlit-Hinweisfelder.
+
+Streamlit prueft diese Angabe gegen eine Emoji-Liste und bricht die ganze Seite
+ab, wenn ein Zeichen nicht darin steht. Typografische Zeichen fallen durch: Das
+Hakenzeichen U+2713 sieht aus wie ein Haken, gilt aber nicht als Emoji. Deshalb
+stehen die zulaessigen Zeichen hier einmal zentral, und `test_oberflaeche.py`
+haelt sie gegen Streamlits eigene Pruefung -- so faellt ein untaugliches Zeichen
+im Test auf und nicht erst bei dem, der das Tool benutzt.
+"""
+
 
 def euro(betrag: Decimal | float | int, *, mit_einheit: bool = True) -> str:
     """Formatiert einen Betrag deutsch: 51.186,64 EUR, negativ mit echtem Minus."""

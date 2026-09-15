@@ -67,25 +67,51 @@ Voraussetzung ist Python 3.12 oder neuer. Die Abhängigkeiten verwaltet
 
 ### uv installieren
 
+Der offizielle Weg wählt die zum Rechner passende Fassung selbst aus:
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Falls das nicht durchkommt, geht es auch direkt über die Binärdatei:
+Falls das nicht durchkommt, geht es auch direkt über die Binärdatei. Dabei muss
+die Architektur von Hand stimmen — auf einem Mac mit Apple-Chip (M1 bis M4) die
+`aarch64`-Fassung, sonst meldet macOS, das Programm sei ein Intel-Programm und
+werde bald nicht mehr unterstützt:
 
 ```bash
+# macOS mit Apple-Chip (M1–M4)
+ZIEL=aarch64-apple-darwin
+# macOS mit Intel-Prozessor:  ZIEL=x86_64-apple-darwin
+# Linux:                      ZIEL=x86_64-unknown-linux-gnu
+
 curl -fsSL -o /tmp/uv.tar.gz \
-  https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz
+  "https://github.com/astral-sh/uv/releases/latest/download/uv-$ZIEL.tar.gz"
 tar xzf /tmp/uv.tar.gz -C /tmp
-mkdir -p ~/.local/bin && mv /tmp/uv-x86_64-unknown-linux-gnu/uv* ~/.local/bin/
+mkdir -p ~/.local/bin && mv "/tmp/uv-$ZIEL/uv" "/tmp/uv-$ZIEL/uvx" ~/.local/bin/
 ```
 
-Danach muss `~/.local/bin` im Suchpfad liegen (`export PATH="$HOME/.local/bin:$PATH"`).
+Welche Fassung läuft, sagt `uname -m`: `arm64` heißt Apple-Chip, `x86_64` Intel.
+
+Danach muss `~/.local/bin` im Suchpfad liegen. Für die laufende Sitzung genügt
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Dauerhaft gehört dieselbe Zeile in die Startdatei der Shell — unter macOS
+üblicherweise `~/.zshrc`, bei einer Bash-Anmeldeshell `~/.bash_profile`, unter
+Linux meist `~/.bashrc`:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+```
+
+Die Änderung wirkt erst in einer neu geöffneten Shell.
 
 ### Projekt einrichten und starten
 
 ```bash
-git clone git@github.com:a-schmidtlab/opti-abrechnung.git
+git clone https://github.com/a-schmidtlab/opti-abrechnung.git
 cd opti-abrechnung
 
 uv sync --group dev        # Umgebung anlegen, Abhängigkeiten installieren
@@ -96,6 +122,17 @@ uv run streamlit run src/optiabrechnung/oberflaeche/app.py
 Der letzte Befehl öffnet die App im Browser, üblicherweise unter
 <http://localhost:8501>. Die Daten bleiben dabei auf dem eigenen Rechner; es
 läuft kein Server im Netz.
+
+Der Klon über HTTPS braucht keinen hinterlegten Schlüssel. Wer bei GitHub einen
+SSH-Schlüssel eingerichtet hat, kann stattdessen
+`git clone git@github.com:a-schmidtlab/opti-abrechnung.git` verwenden.
+
+Nach dem Start ist noch keine Datenquelle eingestellt: Das Tool zeigt einen
+Hinweis und erst dann Zahlen, wenn links unter **Datenquelle** ein Ordner mit
+einem MoneyMoney-Export steht oder eine Nextcloud-Freigabe abgerufen wurde. Den
+anonymisierten Testdatensatz unter `tests/` nimmt es dafür bewusst nicht — sonst
+stünde nach dem Klonen ein vollständiger Bericht aus erfundenen Zahlen auf dem
+Bildschirm.
 
 ---
 
