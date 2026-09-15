@@ -12,6 +12,7 @@ ausgewiesenen Summe; die Rohdaten selbst gehoeren nicht ins Repository.
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -23,8 +24,8 @@ from optiabrechnung.auswertung import (
     raumbilanz,
     rechenkette,
 )
-from optiabrechnung.einlesen import einlesen_moneymoney
-from optiabrechnung.kategorien import RAEUME, Raum
+from optiabrechnung.einlesen import Buchung, einlesen_moneymoney
+from optiabrechnung.kategorien import RAEUME, Raum, zuordnen
 from optiabrechnung.parameter import Zeitraum
 
 REFERENZ = Path(__file__).parent / "fixtures" / "moneymoney_2026_h1_referenz.csv"
@@ -35,6 +36,28 @@ ERSTES_HALBJAHR_2026 = Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=2)
 def kette():
     buchungen = einlesen_moneymoney(REFERENZ)
     return rechenkette(buchungen, ERSTES_HALBJAHR_2026)
+
+
+def _buchung(tag: str, kategorie: str, betrag: str) -> Buchung:
+    """Baut eine einzelne Buchung fuer Tests, die keinen ganzen Export brauchen.
+
+    Der Kategoriepfad laeuft durch dieselbe Zuordnung wie ein echter Import,
+    damit der Test nicht an der Abbildung vorbei prueft.
+    """
+    zeitpunkt = datetime.strptime(tag, "%d.%m.%Y").date()
+    return Buchung(
+        datum=zeitpunkt,
+        wertstellung=zeitpunkt,
+        betrag=Decimal(betrag.replace(".", "").replace(",", ".")),
+        name="Testfall",
+        verwendungszweck="Testfall",
+        iban="",
+        bank="",
+        quelle="test",
+        zeilennummer=1,
+        kategorie_moneymoney=f"SF Optionsräume - {kategorie}",
+        zielkategorie=zuordnen(f"SF Optionsräume - {kategorie}"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -239,11 +262,73 @@ def test_abschlaege_vorige_quartale_stehen_in_der_kette(kette):
     assert kette.abschlaege_vorige_quartale == Decimal("0")
 
 
-def test_anrechnung_weg_rechnungen_gilt_nur_fuer_q1_q3_2026(kette):
-    """Die Anrechnung aus der EUER Q1-Q3 2026 darf Q1-Q2 nicht verzerren."""
+def test_ohne_weg_rechnungen_ist_die_anrechnung_null(kette):
+    """Der Referenzsatz Q1-Q2 2026 enthaelt keine bezahlten WEG-Rechnungen."""
     assert kette.anrechnung_weg.betrag == Decimal("0")
-    kette_q3 = rechenkette([], Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=3))
-    assert kette_q3.anrechnung_weg.betrag == Decimal("36534.66")
+    assert kette.anrechnung_weg.buchungen == ()
+
+
+def test_bezahlte_weg_rechnungen_werden_netto_angerechnet():
+    """Die 6.941,58 EUR, die lange unerklaert waren, sind die Umsatzsteuer.
+
+    Die EUER Q1-Q3 2026 setzt 'abz. bezahlte Rechnungen von WEG' mit 36.534,66 EUR
+    an, waehrend die Buchungen derselben Kategorie 43.476,24 EUR ergeben. Der
+    Blattwert ist genau der Nettobetrag: 43.476,24 / 1,19 = 36.534,66. Damit ist
+    die Zahl nicht mehr abgeschrieben, sondern hergeleitet -- und dieser Test
+    haelt die Herleitung an dem Fall fest, an dem sie sich gezeigt hat.
+    """
+    rechnungen = [
+        _buchung("16.07.2026", "WEG - WEG Rechnungen bezahlt", "-18.950,19"),
+        _buchung("29.07.2026", "WEG - WEG Rechnungen bezahlt", "-15.362,68"),
+        _buchung("03.07.2026", "WEG - WEG Rechnungen bezahlt", "-4.736,20"),
+        _buchung("10.07.2026", "WEG - WEG Rechnungen bezahlt", "-2.106,30"),
+        _buchung("08.05.2026", "WEG - WEG Rechnungen bezahlt", "-1.724,31"),
+        _buchung("12.06.2026", "WEG - WEG Rechnungen bezahlt", "-596,56"),
+    ]
+    kette = rechenkette(rechnungen, Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=3))
+
+    assert kette.weg_rechnungen_brutto == Decimal("-43476.24")
+    assert kette.anrechnung_weg.betrag == Decimal("36534.66")
+    assert kette.weg_rechnungen_umsatzsteuer == Decimal("6941.58")
+    assert kette.anrechnung_weg.anzahl_buchungen == 6
+
+
+def test_die_anrechnung_folgt_dem_zeitraum_und_nicht_einem_festen_wert():
+    """Zwei der sechs Rechnungen fallen in Q1-Q2, vier in Q3.
+
+    Vorher stand die Anrechnung als Blattwert am Zeitraum (2026, 1, 3) und war
+    fuer jeden anderen Zeitraum null. Jetzt zaehlt, was im Zeitraum gebucht ist.
+    """
+    rechnungen = [
+        _buchung("08.05.2026", "WEG - WEG Rechnungen bezahlt", "-1.724,31"),
+        _buchung("12.06.2026", "WEG - WEG Rechnungen bezahlt", "-596,56"),
+        _buchung("16.07.2026", "WEG - WEG Rechnungen bezahlt", "-18.950,19"),
+    ]
+    halbjahr = rechenkette(rechnungen, Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=2))
+    assert halbjahr.weg_rechnungen_brutto == Decimal("-2320.87")
+    assert halbjahr.anrechnung_weg.betrag == Decimal("1950.31")
+
+
+def test_durchlaufende_posten_stehen_gesondert_und_nicht_in_der_kette():
+    """Umsatzsteuer und Freiraum bewegen das Konto, nicht das Ergebnis.
+
+    Beides lief bisher unsichtbar mit. Der Bericht weist es jetzt aus, ohne die
+    Kette zu beruehren -- die Unterscheidung ist der ganze Punkt.
+    """
+    buchungen = [
+        _buchung("15.09.2026", "WEG - Ust", "-1.018,03"),
+        _buchung("28.08.2026", "Freiraum", "-289,40"),
+    ]
+    kette = rechenkette(buchungen, Zeitraum(jahr=2026, erstes_quartal=1, letztes_quartal=3))
+
+    assert kette.betriebskosten_gesamt == Decimal("0")
+    assert kette.einnahmen_gesamt == Decimal("0")
+    bezeichnungen = {p.bezeichnung: p.betrag for p in kette.durchlaufend}
+    assert bezeichnungen == {
+        "Umsatzsteuer an das Finanzamt": Decimal("-1018.03"),
+        "Freiraum": Decimal("-289.40"),
+    }
+    assert kette.durchlaufend_gesamt == Decimal("-1307.43")
 
 
 @pytest.mark.parametrize(
@@ -355,11 +440,11 @@ def test_raumbilanz_umlage_trifft_die_gemeinkosten_genau(kette):
     assert sum(b.gemeinkosten_umlage for b in bilanzen) == auf_cent(umzulegen)
 
 
-def test_raumbilanz_deckungsbeitraege_ergeben_den_ueberschuss(kette):
+def test_raumbilanz_beitraege_ergeben_den_ueberschuss(kette):
     """Ohne die Investitionen, die nach Abschnitt 4 keine laufende Ausgabe sind."""
     bilanzen = raumbilanz(kette)
-    summe_deckungsbeitraege = sum(b.deckungsbeitrag for b in bilanzen)
-    assert auf_cent(summe_deckungsbeitraege) == auf_cent(kette.ueberschuss_gesamt)
+    summe_beitraege = sum(b.ueberschussbeitrag for b in bilanzen)
+    assert auf_cent(summe_beitraege) == auf_cent(kette.ueberschuss_gesamt)
 
 
 def test_raumbilanz_einnahmenanteile_ergeben_hundert_prozent(kette):

@@ -443,8 +443,13 @@ def seite_quartalsbericht(kette) -> None:
     )
     _posten_mit_drilldown(kette.nebenkosten)
     _posten_mit_drilldown(kette.internet)
+    _zwischensumme("Ausgaben gesamt", kette.ausgaben_gesamt)
 
+    # Die Subtraktion ausgeschrieben: Unter einer Ausgabensumme steht sonst ein
+    # Überschuss, der sich daraus allein nicht ergibt.
     st.divider()
+    _zwischensumme("Einnahmen gesamt", kette.einnahmen_gesamt)
+    _zwischensumme("abz. Ausgaben gesamt", kette.ausgaben_gesamt)
     _zwischensumme("Überschuss gesamt", kette.ueberschuss_gesamt)
 
     st.subheader("Investitionen Kuratoren")
@@ -461,8 +466,26 @@ def seite_quartalsbericht(kette) -> None:
     _zwischensumme(kette.nebenkosten.bezeichnung, kette.nebenkosten.betrag)
     if kette.anrechnung_weg.betrag:
         _zwischensumme(kette.anrechnung_weg.bezeichnung, kette.anrechnung_weg.betrag)
-        if kette.anrechnung_weg.herkunft:
-            st.caption(kette.anrechnung_weg.herkunft)
+        with st.expander(
+            f"{kette.anrechnung_weg.anzahl_buchungen} Rechnungen der WEG, brutto "
+            f"{euro(-kette.weg_rechnungen_brutto)}"
+        ):
+            st.markdown(
+                "Gemeint sind **nicht** Rechnungen, die die WEG den Optionsräumen "
+                "stellt, sondern Rechnungen **der** WEG, die vom Optionsraumkonto "
+                "bezahlt wurden — Bauleistungen am Gemeinschaftseigentum. Sie "
+                "mindern deshalb die Überweisung an die WEG.\n\n"
+                f"Angerechnet wird netto: brutto {euro(-kette.weg_rechnungen_brutto)} "
+                f"geteilt durch 1,19 ergibt {euro(kette.anrechnung_weg.betrag)}. Die "
+                f"Umsatzsteuer von {euro(kette.weg_rechnungen_umsatzsteuer)} kommt "
+                "nicht bei der WEG an, sondern über die Voranmeldung zurück — "
+                "dieselbe Systematik wie beim 50-%-Anteil."
+            )
+            st.dataframe(
+                buchungstabelle(kette.anrechnung_weg.buchungen),
+                width="stretch",
+                hide_index=True,
+            )
     _zwischensumme("abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale)
     _zwischensumme("Überweisung auf Hauptkonto", kette.ueberweisung_weg)
 
@@ -476,6 +499,18 @@ def seite_quartalsbericht(kette) -> None:
             "Klärung rechnet das Tool den Bestand unverändert nach, denn der "
             "Bestand ist der Maßstab des Regressionstests."
         )
+
+    if kette.durchlaufend:
+        st.subheader("Durchlaufende Posten")
+        st.caption(
+            "Diese Beträge bewegen das Konto, gehen aber nicht in die Kette ein — "
+            "sie sind weder Ertrag noch Aufwand der Räume. Sie stehen hier, weil "
+            "der Kontostand sonst nicht herzuleiten ist und weil eine Ausgabe, die "
+            "niemand sieht, eine Ausgabe ist, über die niemand entscheidet."
+        )
+        for posten in kette.durchlaufend:
+            _posten_mit_drilldown(posten)
+        _zwischensumme("Summe durchlaufend", kette.durchlaufend_gesamt)
 
 
 # ---------------------------------------------------------------------------
@@ -494,7 +529,7 @@ def seite_raumbilanz(kette) -> None:
         "Nebenkosten mit umlegen",
         value=True,
         help=(
-            "Mit Umlage ergibt die Summe der Deckungsbeiträge genau den Überschuss. "
+            "Mit Umlage ergibt die Summe der Beiträge genau den Überschuss. "
             "Ohne Umlage zeigt sie das Ergebnis vor Nebenkosten."
         ),
     )
@@ -510,7 +545,7 @@ def seite_raumbilanz(kette) -> None:
                 "Anteil an Einnahmen": prozent(b.einnahmenanteil),
                 "Erhaltung direkt": euro(b.erhaltung),
                 "Gemeinkosten anteilig": euro(b.gemeinkosten_umlage),
-                "Deckungsbeitrag": euro(b.deckungsbeitrag),
+                "Beitrag zum Überschuss": euro(b.ueberschussbeitrag),
                 "Investitionen": euro(b.investition),
             }
             for b in bilanzen

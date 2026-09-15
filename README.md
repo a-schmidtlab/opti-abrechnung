@@ -292,9 +292,14 @@ zeigt 2025 — das Blatt weist dort −10.659 € aus, und genau dieser Wert kom
 ### Raumbilanz
 
 Pro Raum: Einnahmen getrennt nach Dauermiete und Einzelbuchung, direkt
-zugeordnete Erhaltungskosten, anteilige Gemeinkosten, Deckungsbeitrag und
+zugeordnete Erhaltungskosten, anteilige Gemeinkosten, Beitrag zum Überschuss und
 Investitionen. Das ist die Auswertung, die die Frage beantwortet, welcher Raum
 sich trägt.
+
+Die Spalte hieß bis Fassung 0.2.0 „Deckungsbeitrag". Fachlich ist das der
+richtige Begriff, umgangssprachlich führt er in die Irre: Man versteht darunter
+eher einen Betrag, den der Raum erwirtschaften *muss*. Gemeint ist das Gegenteil,
+nämlich was er zum Überschuss *beiträgt*.
 
 Umgelegt wird nach dem Anteil des Raums an den Gesamteinnahmen. Der Schalter
 **Nebenkosten mit umlegen** entscheidet, ob die Nebenkostenpauschale mitgeht;
@@ -645,9 +650,11 @@ so gebaut, dass beide Antworten abbildbar sind.
 
 Aus der Abrechnung Q1–Q3 2026 (Stand 15.9.2026) neu:
 
-- **WEG-Rechnungen 36.534,66 € gegen −43.476,24 €.** Die EÜR und die
-  MoneyMoney-Kategorie weichen um 6.941,58 € voneinander ab. Bis zur Klärung gilt
-  der Blattwert; die Differenz ist aus den Einzelbuchungen nicht rekonstruierbar.
+- **WEG-Rechnungen 36.534,66 € gegen −43.476,24 €: geklärt.** Die Differenz von
+  6.941,58 € ist die Umsatzsteuer, 43.476,24 ÷ 1,19 = 36.534,66. Das Tool leitet
+  den Betrag seit Fassung 0.2.0 aus den Buchungen her statt aus dem Blattwert.
+  Gemeint sind Rechnungen **der** WEG — Bauleistungen am Gemeinschaftseigentum —,
+  die vom Optionsraumkonto bezahlt wurden, nicht Rechnungen an die Optionsräume.
 - **Vorzeichen der Überweisung.** Tool +6.478,73 € (Guthaben), Blatt −6.478,73 €
   (andere Vorzeichenkonvention in der Abschlagszeile). Betrag gleich.
 - **Stichtag 15.9. oder 30.9.?** Buchungen enden am 15.9., Nebenkosten und

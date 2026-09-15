@@ -93,7 +93,14 @@ def hauptprogramm(argv: list[str] | None = None) -> int:
     print()
     print(_zeile(f"  {kette.nebenkosten.bezeichnung}", kette.nebenkosten.betrag))
     print(_zeile(f"  {kette.internet.bezeichnung}", kette.internet.betrag))
-    print(_zeile("Ausgaben gesamt", kette.ausgaben_gesamt))
+    print(_zeile("Ausgaben gesamt", kette.ausgaben_gesamt, hervorgehoben=True))
+
+    # Die Subtraktion noch einmal ausgeschrieben. Ohne sie steht der Ueberschuss
+    # unter einer Ausgabensumme, aus der er sich nicht ergibt -- man muss die
+    # Einnahmen von weiter oben im Kopf behalten.
+    print()
+    print(_zeile("  Einnahmen gesamt", kette.einnahmen_gesamt))
+    print(_zeile("  abz. Ausgaben gesamt", kette.ausgaben_gesamt))
     print(_zeile("Überschuss gesamt", kette.ueberschuss_gesamt, hervorgehoben=True))
 
     print("\nInvestitionen Kuratoren")
@@ -109,8 +116,19 @@ def hauptprogramm(argv: list[str] | None = None) -> int:
     print(_zeile(f"  {kette.nebenkosten.bezeichnung}", kette.nebenkosten.betrag))
     if kette.anrechnung_weg.betrag:
         print(_zeile(f"  {kette.anrechnung_weg.bezeichnung}", kette.anrechnung_weg.betrag))
+        print(
+            f"    Rechnungen der WEG, vom Optionsraumkonto bezahlt: brutto "
+            f"{euro(-kette.weg_rechnungen_brutto)}, abzüglich Umsatzsteuer "
+            f"{euro(kette.weg_rechnungen_umsatzsteuer)}."
+        )
     print(_zeile("  abz. Abschläge vorige Quartale", kette.abschlaege_vorige_quartale))
     print(_zeile("Überweisung auf Hauptkonto", kette.ueberweisung_weg, hervorgehoben=True))
+
+    if kette.durchlaufend:
+        print("\nDurchlaufende Posten (bewegen das Konto, nicht die Kette)")
+        for posten in kette.durchlaufend:
+            print(_zeile(f"  {posten.bezeichnung}", posten.betrag))
+        print(_zeile("Summe durchlaufend", kette.durchlaufend_gesamt, hervorgehoben=True))
 
     if kette.pruefposten:
         print("\n⚑ Vorzulegende Posten")
@@ -133,7 +151,10 @@ def hauptprogramm(argv: list[str] | None = None) -> int:
             print(_zeile("    Einzelbuchungen", bilanz.einzelbuchung))
             print(_zeile("    Erhaltung direkt", bilanz.erhaltung))
             print(_zeile("    Gemeinkosten anteilig", bilanz.gemeinkosten_umlage))
-            print(_zeile("    Deckungsbeitrag", bilanz.deckungsbeitrag, hervorgehoben=True))
+            print(
+                _zeile("    Beitrag zum Überschuss", bilanz.ueberschussbeitrag,
+                       hervorgehoben=True)
+            )
             print()
 
     print()

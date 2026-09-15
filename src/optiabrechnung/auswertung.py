@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
 from .einlesen import Buchung
-from .kategorien import RAEUME, Bereich, Einnahmeart, Kostenart, Raum
+from .kategorien import RAEUME, Bereich, Durchlaufart, Einnahmeart, Kostenart, Raum
 from .parameter import (
     ANTEIL_UEBERSCHUSS,
     BUDGETRESTE_VORJAHRE,
@@ -28,7 +28,6 @@ from .parameter import (
     Jahresparameter,
     Zeitraum,
     parameter_fuer,
-    zeitraumparameter_fuer,
 )
 
 CENT = Decimal("0.01")
@@ -169,13 +168,31 @@ class Rechenkette:
     nebenkosten: Posten
     internet: Posten
     anrechnung_weg: Posten
-    """Bereits bezahlte WEG-Rechnungen, angerechnet auf die Ueberweisung."""
+    """Bereits bezahlte WEG-Rechnungen, angerechnet auf die Ueberweisung.
+
+    Achtung, hier weicht der Betrag bewusst von der Summe der angehaengten
+    Buchungen ab: Der Betrag ist der *Netto*wert, die Buchungen sind die
+    *Brutto*rechnungen. Die Differenz ist die Umsatzsteuer, die nicht bei der WEG
+    ankommt, sondern ueber die Umsatzsteuervoranmeldung zurueckfliesst. Die
+    Buchungen haengen trotzdem daran, weil sonst nicht nachzusehen waere, welche
+    Rechnungen gemeint sind -- und genau das war die Frage.
+    """
 
     einnahmen_je_raum_und_art: dict[tuple[Raum, Einnahmeart], Posten] = field(
         default_factory=dict
     )
     unzugeordnet: tuple[Buchung, ...] = ()
     """Buchungen im Zeitraum ohne Zielkategorie -- muessen leer sein."""
+
+    durchlaufend: tuple[Posten, ...] = ()
+    """Posten, die ueber das Konto laufen, aber nicht in die Kette eingehen.
+
+    Umsatzsteuer, Nebenkostenueberweisung, WEG-Entnahme, Kaution, Gaestezimmer,
+    Freiraum. Sie stehen nicht in der Kette, weil sie kein Ertrag und kein
+    Aufwand der Raeume sind -- aber sie bewegen den Kontostand. Ohne sie ist der
+    Saldo nicht herzuleiten, und eine Ausgabe, die niemand sieht, ist eine
+    Ausgabe, ueber die niemand entscheidet.
+    """
 
     # --- Summen der Kette -------------------------------------------------
 
@@ -245,6 +262,16 @@ class Rechenkette:
         return self.parameter.abschlaege_vorige_quartale
 
     @property
+    def weg_rechnungen_brutto(self) -> Decimal:
+        """Die WEG-Rechnungen, wie sie vom Konto abgegangen sind: brutto, negativ."""
+        return summe(b.betrag for b in self.anrechnung_weg.buchungen)
+
+    @property
+    def weg_rechnungen_umsatzsteuer(self) -> Decimal:
+        """Der Umsatzsteueranteil der WEG-Rechnungen -- die Differenz brutto zu netto."""
+        return -self.weg_rechnungen_brutto - self.anrechnung_weg.betrag
+
+    @property
     def ueberweisung_weg(self) -> Decimal:
         """Netto-Ueberschussanteil, Nebenkosten, Abschlaege, Anrechnung WEG-Rechnungen."""
         return (
@@ -253,6 +280,12 @@ class Rechenkette:
             + self.abschlaege_vorige_quartale
             + self.anrechnung_weg.betrag
         )
+
+    # --- Kontobewegungen ausserhalb der Kette ------------------------------
+
+    @property
+    def durchlaufend_gesamt(self) -> Decimal:
+        return summe(p.betrag for p in self.durchlaufend)
 
     # --- Hinweise ----------------------------------------------------------
 
@@ -335,13 +368,6 @@ def rechenkette(
         for raum in RAEUME
     ]
 
-    zeitraumwerte = zeitraumparameter_fuer(zeitraum)
-    anrechnung = Posten(
-        bezeichnung="abz. bezahlte Rechnungen von WEG",
-        betrag=zeitraumwerte.anrechnung_weg_rechnungen,
-        herkunft=zeitraumwerte.herkunft,
-    )
-
     return Rechenkette(
         zeitraum=zeitraum,
         parameter=parameter,
@@ -355,9 +381,85 @@ def rechenkette(
             zeitraum,
         ),
         internet=_internetposten(auswahl, parameter, zeitraum),
-        anrechnung_weg=anrechnung,
+        anrechnung_weg=_anrechnung_weg(auswahl),
         einnahmen_je_raum_und_art=einnahmen_detail,
         unzugeordnet=tuple(b for b in auswahl if b.zielkategorie is None),
+        durchlaufend=_durchlaufende_posten(auswahl),
+    )
+
+
+def _durchlaufartige(auswahl: Sequence[Buchung], art: Durchlaufart) -> list[Buchung]:
+    return [
+        b
+        for b in _nach_bereich(auswahl, Bereich.DURCHLAUFEND)
+        if b.zielkategorie.durchlaufart is art
+    ]
+
+
+BESCHRIFTUNG_DURCHLAUFEND: tuple[tuple[Durchlaufart, str], ...] = (
+    (Durchlaufart.NEBENKOSTEN_WEG, "Nebenkosten-Überweisung an die WEG"),
+    (Durchlaufart.WEG_ENTNAHME, "WEG-Entnahme und -Umbuchung"),
+    (Durchlaufart.WEG_RECHNUNGEN, "Rechnungen der WEG, vom Konto bezahlt"),
+    (Durchlaufart.WEG_DIREKT, "WEG direkt"),
+    (Durchlaufart.UMSATZSTEUER, "Umsatzsteuer an das Finanzamt"),
+    (Durchlaufart.FREIRAUM, "Freiraum"),
+    (Durchlaufart.RUECKBUCHUNG, "Rückbuchung und Kaution"),
+    (Durchlaufart.GAESTEZIMMER, "Gästezimmer"),
+)
+"""Reihenfolge und Beschriftung der durchlaufenden Posten im Bericht.
+
+Getrennt von den Aufzaehlungswerten in `kategorien.py`, wie schon bei
+`REIHENFOLGE_BETRIEB`: Die Systematik transkribiert Umlaute, ein Bericht an
+Spree VV oder den Beirat sollte sie schreiben.
+"""
+
+
+def _durchlaufende_posten(auswahl: Sequence[Buchung]) -> tuple[Posten, ...]:
+    """Fasst die Kontobewegungen ausserhalb der Kette je Durchlaufart zusammen.
+
+    Arten ohne Buchungen fallen weg. Eine Art *mit* Buchungen bleibt auch dann
+    stehen, wenn sie sich auf 0,00 EUR aufhebt -- gerade bei Rueckbuchungen ist
+    das die Auskunft, dass sich Buchung und Gegenbuchung ausgleichen.
+    """
+    posten = [
+        _posten_aus(beschriftung, _durchlaufartige(auswahl, art))
+        for art, beschriftung in BESCHRIFTUNG_DURCHLAUFEND
+    ]
+    return tuple(p for p in posten if p.buchungen)
+
+
+def _anrechnung_weg(auswahl: Sequence[Buchung]) -> Posten:
+    """Rechnet die vom Optionsraumkonto bezahlten WEG-Rechnungen netto an.
+
+    Die Zeile 'abz. bezahlte Rechnungen von WEG' der EUER Q1-Q3 2026 lautet
+    36.534,66 EUR, die Buchungen derselben Kategorie summieren aber 43.476,24 EUR.
+    Die Differenz von 6.941,58 EUR war lange unerklaert -- sie ist genau die
+    Umsatzsteuer: 43.476,24 / 1,19 = 36.534,66. Das passt zur uebrigen
+    Systematik, denn auch der 50-%-Anteil an die WEG wird netto abgefuehrt. Die
+    Umsatzsteuer kommt nicht bei der WEG an, sondern fliesst ueber die
+    Voranmeldung zurueck; angerechnet wird deshalb der Nettobetrag.
+
+    Damit steht die Zahl nicht mehr als Blattwert im Quelltext, sondern folgt aus
+    den Buchungen -- und gilt fuer jeden Zeitraum, nicht nur fuer den einen, fuer
+    den sie einmal abgeschrieben wurde.
+    """
+    rechnungen = _durchlaufartige(auswahl, Durchlaufart.WEG_RECHNUNGEN)
+    brutto = summe(b.betrag for b in rechnungen)
+    netto = auf_cent(-brutto / UMSATZSTEUERSATZ)
+    herkunft = ""
+    if rechnungen:
+        herkunft = (
+            f"{len(rechnungen)} Rechnungen der WEG, vom Optionsraumkonto bezahlt: "
+            f"brutto {abs(brutto):,.2f} EUR, geteilt durch 1,19 ergibt netto "
+            f"{netto:,.2f} EUR. Der Umsatzsteueranteil von "
+            f"{(-brutto - netto):,.2f} EUR kommt nicht bei der WEG an, sondern "
+            f"ueber die Voranmeldung zurueck."
+        )
+    return Posten(
+        bezeichnung="abz. bezahlte Rechnungen von WEG",
+        betrag=netto,
+        buchungen=tuple(rechnungen),
+        herkunft=herkunft,
     )
 
 
@@ -434,8 +536,15 @@ class Raumbilanz:
         return self.dauermiete + self.einzelbuchung
 
     @property
-    def deckungsbeitrag(self) -> Decimal:
+    def ueberschussbeitrag(self) -> Decimal:
         """Einnahmen abzueglich direkter Erhaltung und anteiliger Gemeinkosten.
+
+        Hiess bis 0.2.0 `Deckungsbeitrag`. Fachlich ist das der richtige Begriff,
+        umgangssprachlich fuehrt er aber in die Irre: Man versteht darunter eher
+        einen Betrag, den der Raum erwirtschaften *muss*, um nicht zur Last zu
+        werden. Gemeint ist das Gegenteil, naemlich was er zum Ueberschuss
+        *beitraegt*. In einer Runde, die ueber Zahlen streitet, ist ein Begriff,
+        den man erklaeren muss, ein schlechter Begriff.
 
         Ohne Investitionen: Die sind nach Abschnitt 4 keine laufende Ausgabe,
         sondern Entnahme aus dem Kuratorenbudget.

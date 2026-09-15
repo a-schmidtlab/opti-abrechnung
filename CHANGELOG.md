@@ -9,6 +9,52 @@ Commits: <https://github.com/a-schmidtlab/opti-abrechnung/commits/main>
 
 ---
 
+## [0.2.0] — 2026-09-15
+
+Arbeitet Henrikes Kommentare zum Bericht Q1–Q3 2026 ein. Die Zahlen der Kette
+ändern sich dadurch nicht; eine offene Frage ist geklärt.
+
+### Geklärt
+
+- **Die 6.941,58 € bei den WEG-Rechnungen sind die Umsatzsteuer.** Die EÜR setzt
+  „abz. bezahlte Rechnungen von WEG“ mit 36.534,66 € an, die Buchungen derselben
+  Kategorie summieren 43.476,24 €. Der Blattwert ist genau der Nettobetrag:
+  43.476,24 ÷ 1,19 = 36.534,66. Das passt zur übrigen Systematik, denn auch der
+  50-%-Anteil an die WEG wird netto abgeführt.
+- Damit ist auch die Frage beantwortet, was „WEG Rechnungen“ überhaupt sind:
+  nicht Rechnungen, die die WEG den Optionsräumen stellt, sondern Rechnungen
+  **der** WEG, die vom Optionsraumkonto bezahlt wurden — Lüftungsarbeiten
+  Cateringküche und Fassadenarbeiten, also Bauleistungen am
+  Gemeinschaftseigentum.
+
+### Geändert
+
+- Die Anrechnung der WEG-Rechnungen wird aus den Buchungen hergeleitet statt als
+  Blattwert am Zeitraum (2026, Q1–Q3) zu hängen. Sie gilt damit für jeden
+  Zeitraum. `Zeitraumparameter` und `ZEITRAUM_PARAMETER` sind entfallen.
+  Nebenwirkung: Zwei der sechs Rechnungen liegen im ersten Halbjahr, ein neuer
+  Lauf für Q1–Q2 2026 weist deshalb 1.950,31 € aus, die im damaligen Blatt noch
+  nicht standen.
+- „Deckungsbeitrag“ heißt in der Raumbilanz jetzt „Beitrag zum Überschuss“.
+  Fachlich war der alte Begriff richtig, umgangssprachlich legt er das Gegenteil
+  nahe — einen Betrag, den der Raum erwirtschaften müsste.
+- „Ausgaben gesamt“ ist eine eigene Ergebniszeile, und der Überschuss wird als
+  Einnahmen abzüglich Ausgaben ausgeschrieben. Vorher stand er unter einer
+  Ausgabensumme, aus der er sich allein nicht ergab.
+- Die Herkunftsangabe des Nebenkostenbetrags 2026 nennt jetzt die tatsächliche
+  Herleitung (Wert der Hausverwaltung, aus den Gewerbe-Werten auf die Quadratmeter
+  umgerechnet, Bootshaus ohne Aufzüge) und den Umstand, dass ohne echte
+  Nebenkostenabrechnung kein Umsatzsteueranteil abzugsfähig ist.
+
+### Hinzugefügt
+
+- Block „Durchlaufende Posten“ in Bericht und Oberfläche: Umsatzsteuer,
+  WEG-Rechnungen, Freiraum, Rückbuchung und Kaution, Gästezimmer. Sie bewegen das
+  Konto, gehören aber nicht in die Kette. Für Q1–Q3 2026 zusammen −52.036,34 €,
+  darunter 6.859,65 € Umsatzsteuer an das Finanzamt — Geld, das das Konto
+  verlässt und in der Auswertung bisher nirgends auftauchte.
+- Drilldown auf die sechs WEG-Rechnungen samt Umrechnung brutto auf netto.
+
 ## [0.1.1] — 2026-09-15
 
 Behebt die Fehler aus Tristans erstem Durchlauf auf einem fremden Rechner.

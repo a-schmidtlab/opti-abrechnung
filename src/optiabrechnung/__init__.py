@@ -9,4 +9,4 @@ Jede Zahl im Quartalsbericht soll bis auf die einzelne Bankbuchung aufklappbar
 sein. Siehe PLANUNG.md.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"

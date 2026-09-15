@@ -149,9 +149,15 @@ PARAMETER_JE_JAHR: dict[int, Jahresparameter] = {
         jahr=2026,
         nebenkosten_jahresbetrag=Decimal("27885.50"),
         nebenkosten_herkunft=(
-            "Tatsaechliche Nebenkosten aus 2024, unveraendert angesetzt, ohne "
-            "VPI-Aufschlag -- entspricht Henrikes Lesart aus Abschnitt 8. "
-            "Halbjahresanteil 13.942,75 EUR wie in der Auswertung Q1-Q2 2026."
+            "Wert der Hausverwaltung, hergeleitet aus den Werten fuer die Gewerbe, "
+            "umgerechnet auf die Quadratmeter der Optionsraeume, mit Anpassungen "
+            "(das Bootshaus zahlt die Aufzuege nicht mit). Die Berechnung selbst "
+            "liegt noch nicht vor und ist angefragt. Solange keine "
+            "Nebenkostenabrechnung vorliegt, laesst sich der darin enthaltene "
+            "Umsatzsteueranteil nicht in Abzug bringen -- und es ist offen, ob die "
+            "Vorauszahlungen ueberhaupt als gewinnmindernd angesetzt werden. "
+            "Angesetzt ohne VPI-Aufschlag; Halbjahresanteil 13.942,75 EUR wie in "
+            "der Auswertung Q1-Q2 2026."
         ),
         internet_jahresbetrag=Decimal("1853.52"),
         internet_herkunft=(
@@ -183,48 +189,6 @@ def parameter_fuer(jahr: int) -> Jahresparameter:
         return PARAMETER_JE_JAHR[jahr]
     except KeyError as fehler:
         raise ParameterFehlt(jahr) from fehler
-
-
-# ---------------------------------------------------------------------------
-# Zeitraumbezogene Anrechnungen (nicht je Jahr, sondern je Bericht)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class Zeitraumparameter:
-    """Werte, die nur fuer einen bestimmten Bericht gelten, nicht fuer das Jahr.
-
-    Die Anrechnung bereits bezahlter WEG-Rechnungen gehoert hierher und nicht
-    zu den Jahresparametern: Wuerde sie am Jahr haengen, verzerrte sie jeden
-    anderen Bericht desselben Jahres -- etwa Q1-Q2 2026.
-    """
-
-    anrechnung_weg_rechnungen: Decimal = Decimal(0)
-    """Bereits vom Optionsraumkonto bezahlte WEG-Rechnungen, als Anrechnung auf
-    die noch zu leistende Ueberweisung. Vorzeichen: positiv, weil sie den
-    Abfluss an die WEG mindert."""
-
-    herkunft: str = ""
-
-
-ZEITRAUM_PARAMETER: dict[tuple[int, int, int], Zeitraumparameter] = {
-    (2026, 1, 3): Zeitraumparameter(
-        anrechnung_weg_rechnungen=Decimal("36534.66"),
-        herkunft=(
-            "EUER Q1-Q3 2026, Zeile 'abz. bezahlte Rechnungen von WEG'. "
-            "Die MoneyMoney-Kategorie 'WEG Rechnungen bezahlt' summiert im "
-            "selben Zeitraum -43.476,24 EUR; die Differenz 6.941,58 EUR ist "
-            "aus den Einzelbuchungen nicht rekonstruierbar. Bis zur Klaerung "
-            "gilt der Blattwert."
-        ),
-    ),
-}
-
-
-def zeitraumparameter_fuer(zeitraum: Zeitraum) -> Zeitraumparameter:
-    """Liefert die Anrechnungen eines Zeitraums; fehlende gelten als null."""
-    schluessel = (zeitraum.jahr, zeitraum.erstes_quartal, zeitraum.letztes_quartal)
-    return ZEITRAUM_PARAMETER.get(schluessel, Zeitraumparameter())
 
 
 # ---------------------------------------------------------------------------
